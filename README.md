@@ -315,8 +315,6 @@ The package provides reference files in `vendor/vormia-folks/atu-shipping/src/st
 Add the following routes to your admin routes file (e.g., `routes/admin.php` or `routes/web.php` with admin middleware):
 
 ```php
-use Livewire\Volt\Volt;
-
 Route::prefix('admin/atu/shipping')->name('admin.atu.shipping.')->group(function () {
     // Couriers
     Volt::route('couriers', 'admin.atu.shipping.couriers.index')->name('couriers.index');
