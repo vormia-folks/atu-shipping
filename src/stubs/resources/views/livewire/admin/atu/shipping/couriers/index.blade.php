@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Traits\Vrm\Livewire\WithNotifications;
 
 new class extends Component {
+    //
     use WithPagination;
     use WithNotifications;
 
@@ -96,103 +97,171 @@ new class extends Component {
 ?>
 
 <div>
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">Shipping Couriers</h2>
-        <a href="{{ route('admin.atu.shipping.couriers.create') }}" class="btn btn-primary">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Add Courier
-        </a>
-    </div>
+    <x-admin-panel>
+        <x-slot name="header">{{ __('Shipping Couriers') }}</x-slot>
+        <x-slot name="desc">
+            {{ __('Manage shipping couriers and their configurations.') }}
+            {{ __('You can create, edit, enable/disable, or delete couriers here.') }}
+        </x-slot>
+        <x-slot name="button">
+            <a href="{{ route('admin.atu.shipping.couriers.create') }}"
+                class="bg-blue-500 dark:bg-blue-600 text-white hover:bg-blue-600 dark:hover:bg-blue-700 px-3 py-2 rounded-md float-right text-sm font-bold">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 inline-block">
+                    <path fill-rule="evenodd"
+                        d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z"
+                        clip-rule="evenodd" />
+                </svg>
+                Add Courier
+            </a>
+        </x-slot>
 
-    <!-- Search and Filters -->
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                <input type="text" wire:model.live.debounce.300ms="search" 
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="Search by name, code, or description...">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Per Page</label>
-                <select wire:model.live="perPage" 
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
+        {{-- Search & Filter --}}
+        <div class="my-4">
+            <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Search & Filter data</h3>
+                    <form class="sm:flex sm:items-center mt-4">
+                        <div class="w-full sm:max-w-xs">
+                            <input type="text" wire:model.live.debounce.300ms="search"
+                                class="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-base text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                                placeholder="Search by name, code, or description..." />
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Couriers Table -->
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rules</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse($this->couriers as $courier)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">{{ $courier->name }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-500">{{ $courier->code }}</div>
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="text-sm text-gray-500">{{ Str::limit($courier->description ?? 'N/A', 50) }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <button wire:click="toggleActive({{ $courier->id }})" 
-                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                               {{ $courier->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                    {{ $courier->is_active ? 'Active' : 'Inactive' }}
-                                </button>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                @php
-                                    $ruleCount = DB::table('atu_shipping_rules')->where('courier_id', $courier->id)->count();
-                                @endphp
-                                <span class="text-sm text-gray-500">{{ $ruleCount }} rule(s)</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div class="flex space-x-2">
-                                    <a href="{{ route('admin.atu.shipping.rules.index', ['courier' => $courier->id]) }}" 
-                                       class="text-blue-600 hover:text-blue-900">Rules</a>
-                                    <a href="{{ route('admin.atu.shipping.couriers.edit', $courier->id) }}" 
-                                       class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                                    <button wire:click="delete({{ $courier->id }})" 
-                                            wire:confirm="Are you sure you want to delete this courier?"
-                                            class="text-red-600 hover:text-red-900">Delete</button>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
+        {{-- Display notifications --}}
+        {!! $this->renderNotification() !!}
+
+        {{-- Couriers Table --}}
+        <div class="overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10 sm:rounded-lg mt-2">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-600">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
-                                No couriers found.
-                            </td>
+                            <th scope="col" class="py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 sm:pl-3">Name</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Code</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Description</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Status</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Rules</th>
+                            <th scope="col" class="relative py-3.5 pr-4 pl-3 sm:pr-3">
+                                <span class="sr-only">Actions</span>
+                            </th>
                         </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-800">
+                        @if ($this->couriers->isNotEmpty())
+                            @foreach ($this->couriers as $courier)
+                                <tr class="even:bg-gray-50 dark:even:bg-gray-800/50">
+                                    <td class="py-4 pr-3 pl-4 text-sm font-medium whitespace-nowrap text-gray-900 dark:text-gray-100 sm:pl-3">
+                                        {{ $courier->name }}
+                                    </td>
+                                    <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                        {{ $courier->code }}
+                                    </td>
+                                    <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                        {{ Str::limit($courier->description ?? 'N/A', 50) }}
+                                    </td>
+                                    <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                        @if ($courier->is_active)
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-sm bg-green-400 text-white">
+                                                Active
+                                            </span>
+                                        @else
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-sm bg-red-400 text-white">
+                                                Inactive
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td class="px-3 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                        @php
+                                            $ruleCount = DB::table('atu_shipping_rules')->where('courier_id', $courier->id)->count();
+                                        @endphp
+                                        {{ $ruleCount }} rule(s)
+                                    </td>
+                                    <td class="relative py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-3">
+                                        <div class="flex items-center justify-end gap-x-2">
+                                            <a href="{{ route('admin.atu.shipping.rules.index', ['courier' => $courier->id]) }}"
+                                                class="inline-flex items-center gap-x-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                                                Rules
+                                            </a>
+                                            <a href="{{ route('admin.atu.shipping.couriers.edit', $courier->id) }}"
+                                                class="inline-flex items-center gap-x-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                                    stroke="currentColor" class="size-4">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                </svg>
+                                                Edit
+                                            </a>
+                                            <button type="button" wire:click="toggleActive({{ $courier->id }})"
+                                                class="inline-flex items-center gap-x-1.5 rounded-md {{ $courier->is_active ? 'bg-yellow-400 hover:bg-yellow-500 focus-visible:outline-yellow-600' : 'bg-green-600 hover:bg-green-500 focus-visible:outline-green-600' }} px-2.5 py-1 text-sm font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4">
+                                                    @if ($courier->is_active)
+                                                        <path fill-rule="evenodd"
+                                                            d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z"
+                                                            clip-rule="evenodd" />
+                                                    @else
+                                                        <path fill-rule="evenodd"
+                                                            d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z"
+                                                            clip-rule="evenodd" />
+                                                    @endif
+                                                </svg>
+                                            </button>
+                                            <button type="button" wire:click="$js.confirmDelete({{ $courier->id }})"
+                                                class="inline-flex items-center gap-x-1.5 rounded-md bg-red-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                                    stroke="currentColor" class="size-4">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                </svg>
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        @else
+                            <tr class="even:bg-gray-50 dark:even:bg-gray-800/50">
+                                <td colspan="6" class="py-4 pr-3 pl-4 text-sm font-medium whitespace-nowrap text-gray-900 dark:text-gray-100 sm:pl-3 text-center">
+                                    <span class="text-gray-500 dark:text-gray-400 text-2xl font-bold">No couriers found</span>
+                                </td>
+                            </tr>
+                        @endif
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <!-- Pagination -->
-        <div class="px-6 py-4 border-t border-gray-200">
-            {{ $this->couriers->links() }}
+        {{-- Pagination --}}
+        <div class="mt-8">
+            @if ($this->couriers->hasPages())
+                <div class="p-2">
+                    {{ $this->couriers->links() }}
+                </div>
+            @endif
         </div>
-    </div>
+    </x-admin-panel>
+
+    @script
+        <script>
+            $js('confirmDelete', (id) => {
+                Swal.fire({
+                    title: 'Are you sure you want to delete?',
+                    text: "This courier will be removed permanently.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, delete it!',
+                    cancelButtonText: 'No, cancel!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $wire.delete(id);
+                    }
+                });
+            });
+        </script>
+    @endscript
 </div>

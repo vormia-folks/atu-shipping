@@ -155,236 +155,286 @@ new class extends Component {
             $this->notifyError(__('Failed to update rule: ' . $e->getMessage()));
         }
     }
+
+    public function cancel(): void
+    {
+        $this->notifyInfo(__('Update cancelled!'));
+    }
 };
 
 ?>
 
 <div>
-    <div class="mb-6">
-        <a href="{{ route('admin.atu.shipping.rules.index', ['courier' => $rule->courier_id ?? null]) }}" class="text-blue-600 hover:text-blue-900">
-            ← Back to Rules
-        </a>
-        <h2 class="text-2xl font-bold text-gray-900 mt-4">Edit Shipping Rule</h2>
-    </div>
+    <x-admin-panel>
+        <x-slot name="header">{{ __('Edit Shipping Rule') }}</x-slot>
+        <x-slot name="desc">
+            {{ __('Update the shipping rule information.') }}
+        </x-slot>
+        <x-slot name="button">
+            <a href="{{ route('admin.atu.shipping.rules.index', ['courier' => $rule->courier_id ?? null]) }}"
+                class="bg-black dark:bg-gray-700 text-white hover:bg-gray-800 dark:hover:bg-gray-600 px-3 py-2 rounded-md float-right text-sm font-bold">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 inline-block">
+                    <path fill-rule="evenodd"
+                        d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.28 9.22a.75.75 0 0 0 0 1.06l3 3a.75.75 0 1 0 1.06-1.06l-1.72-1.72h5.69a.75.75 0 0 0 0-1.5h-5.69l1.72-1.72a.75.75 0 0 0-1.06-1.06l-3 3Z"
+                        clip-rule="evenodd" />
+                </svg>
+                Go Back
+            </a>
+        </x-slot>
 
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <form wire:submit="update">
-            <div class="space-y-6">
-                <!-- Basic Information -->
-                <div class="border-b pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Courier -->
+        {{-- Form Container --}}
+        <div class="overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10 sm:rounded-lg px-4 py-5 mb-5 sm:p-6">
+            {{-- Display notifications --}}
+            {!! $this->renderNotification() !!}
+
+            <form wire:submit="update">
+                <div class="space-y-12">
+                    {{-- Basic Information --}}
+                    <div class="grid grid-cols-1 gap-x-8 gap-y-10 pb-12 md:grid-cols-3">
                         <div>
-                            <label for="courier_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                Courier <span class="text-red-500">*</span>
-                            </label>
-                            <select id="courier_id" wire:model="courier_id" 
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('courier_id') border-red-500 @enderror">
-                                @foreach($this->couriers as $courier)
-                                    <option value="{{ $courier->id }}">{{ $courier->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('courier_id')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
+                            <h2 class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">Basic Information</h2>
+                            <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-300">
+                                Update the basic information for the shipping rule.
+                            </p>
                         </div>
 
-                        <!-- Name -->
-                        <div>
-                            <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
-                                Rule Name <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" id="name" wire:model="name" 
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('name') border-red-500 @enderror">
-                            @error('name')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <!-- Priority -->
-                        <div>
-                            <label for="priority" class="block text-sm font-medium text-gray-700 mb-2">
-                                Priority <span class="text-red-500">*</span>
-                            </label>
-                            <input type="number" id="priority" wire:model="priority" min="0"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('priority') border-red-500 @enderror">
-                            <p class="mt-1 text-sm text-gray-500">Lower numbers are evaluated first</p>
-                            @error('priority')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <!-- Active Status -->
-                        <div class="flex items-end">
-                            <label class="flex items-center">
-                                <input type="checkbox" wire:model="is_active" 
-                                       class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                                <span class="ml-2 text-sm text-gray-700">Active</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Constraints -->
-                <div class="border-b pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Constraints</h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- From Country -->
-                        <div>
-                            <label for="from_country" class="block text-sm font-medium text-gray-700 mb-2">
-                                From Country (ISO Code)
-                            </label>
-                            <input type="text" id="from_country" wire:model="from_country" maxlength="2"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                   placeholder="e.g., ZA">
-                        </div>
-
-                        <!-- To Country -->
-                        <div>
-                            <label for="to_country" class="block text-sm font-medium text-gray-700 mb-2">
-                                To Country (ISO Code)
-                            </label>
-                            <input type="text" id="to_country" wire:model="to_country" maxlength="2"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                   placeholder="e.g., KE">
-                        </div>
-
-                        <!-- Min/Max Cart Subtotal -->
-                        <div>
-                            <label for="min_cart_subtotal" class="block text-sm font-medium text-gray-700 mb-2">
-                                Min Cart Subtotal
-                            </label>
-                            <input type="number" id="min_cart_subtotal" wire:model="min_cart_subtotal" step="0.01" min="0"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        </div>
-
-                        <div>
-                            <label for="max_cart_subtotal" class="block text-sm font-medium text-gray-700 mb-2">
-                                Max Cart Subtotal
-                            </label>
-                            <input type="number" id="max_cart_subtotal" wire:model="max_cart_subtotal" step="0.01" min="0"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        </div>
-
-                        <!-- Min/Max Weight -->
-                        <div>
-                            <label for="min_weight" class="block text-sm font-medium text-gray-700 mb-2">
-                                Min Weight (kg)
-                            </label>
-                            <input type="number" id="min_weight" wire:model="min_weight" step="0.01" min="0"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        </div>
-
-                        <div>
-                            <label for="max_weight" class="block text-sm font-medium text-gray-700 mb-2">
-                                Max Weight (kg)
-                            </label>
-                            <input type="number" id="max_weight" wire:model="max_weight" step="0.01" min="0"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        </div>
-                    </div>
-
-                    <!-- Applies Per Item -->
-                    <div class="mt-4">
-                        <label class="flex items-center">
-                            <input type="checkbox" wire:model="applies_per_item" 
-                                   class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                            <span class="ml-2 text-sm text-gray-700">Apply fee per item (instead of total cart weight)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Fee Configuration -->
-                <div class="border-b pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Fee Configuration</h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Fee Type -->
-                        <div>
-                            <label for="fee_type" class="block text-sm font-medium text-gray-700 mb-2">
-                                Fee Type <span class="text-red-500">*</span>
-                            </label>
-                            <select id="fee_type" wire:model.live="fee_type" 
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('fee_type') border-red-500 @enderror">
-                                <option value="flat">Flat Fee</option>
-                                <option value="per_kg">Per Kilogram</option>
-                            </select>
-                            @error('fee_type')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        @if($fee_type === 'flat')
-                            <!-- Flat Fee -->
-                            <div>
-                                <label for="flat_fee" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Flat Fee <span class="text-red-500">*</span>
-                                </label>
-                                <input type="number" id="flat_fee" wire:model="flat_fee" step="0.01" min="0"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('flat_fee') border-red-500 @enderror">
-                                @error('flat_fee')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
+                        <div class="grid max-w-2xl grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 md:col-span-2">
+                            {{-- Courier --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="courier_id" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100 required">Courier</label>
+                                <div class="mt-2">
+                                    <select id="courier_id" wire:model="courier_id"
+                                        class="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-base text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6">
+                                        @foreach($this->couriers as $courier)
+                                            <option value="{{ $courier->id }}">{{ $courier->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <span class="text-red-500 text-sm italic"> {{ $errors->first('courier_id') }}</span>
+                                </div>
                             </div>
-                        @else
-                            <!-- Per KG Fee -->
-                            <div>
-                                <label for="per_kg_fee" class="block text-sm font-medium text-gray-700 mb-2">
-                                    Per Kilogram Fee <span class="text-red-500">*</span>
-                                </label>
-                                <input type="number" id="per_kg_fee" wire:model="per_kg_fee" step="0.01" min="0"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('per_kg_fee') border-red-500 @enderror">
-                                @error('per_kg_fee')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
+
+                            {{-- Name --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="name" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100 required">Rule Name</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="text" id="name" wire:model="name"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                    <span class="text-red-500 text-sm italic"> {{ $errors->first('name') }}</span>
+                                </div>
                             </div>
-                        @endif
-                    </div>
-                </div>
 
-                <!-- Tax & Currency -->
-                <div class="border-b pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Tax & Currency</h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Tax Rate -->
-                        <div>
-                            <label for="tax_rate" class="block text-sm font-medium text-gray-700 mb-2">
-                                Tax Rate (0-1)
-                            </label>
-                            <input type="number" id="tax_rate" wire:model="tax_rate" step="0.0001" min="0" max="1"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                   placeholder="e.g., 0.16 for 16%">
-                        </div>
+                            {{-- Priority --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="priority" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100 required">Priority</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="number" id="priority" wire:model="priority" min="0"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                    <span class="text-red-500 text-sm italic"> {{ $errors->first('priority') }}</span>
+                                </div>
+                                <p class="mt-3 text-sm/6 text-gray-600 dark:text-gray-300">Lower numbers are evaluated first</p>
+                            </div>
 
-                        <!-- Currency -->
-                        <div>
-                            <label for="currency" class="block text-sm font-medium text-gray-700 mb-2">
-                                Currency Code (ISO)
-                            </label>
-                            <input type="text" id="currency" wire:model="currency" maxlength="3"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                   placeholder="e.g., USD">
-                            <p class="mt-1 text-sm text-gray-500">Leave empty to use base currency</p>
+                            {{-- Active Status --}}
+                            <div class="col-span-full sm:col-span-3 flex items-end">
+                                <label class="flex items-center">
+                                    <input type="checkbox" wire:model="is_active"
+                                        class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600">
+                                    <span class="ml-2 text-sm text-gray-900 dark:text-gray-100">Active</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Submit Button -->
-                <div class="flex justify-end space-x-3 pt-4">
-                    <a href="{{ route('admin.atu.shipping.rules.index', ['courier' => $rule->courier_id ?? null]) }}" 
-                       class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                        Cancel
-                    </a>
-                    <button type="submit" 
-                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                        Update Rule
-                    </button>
+                    {{-- Constraints --}}
+                    <div class="grid grid-cols-1 gap-x-8 gap-y-10 pb-12 md:grid-cols-3">
+                        <div>
+                            <h2 class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">Constraints</h2>
+                            <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-300">
+                                Define the constraints for when this rule applies.
+                            </p>
+                        </div>
+
+                        <div class="grid max-w-2xl grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 md:col-span-2">
+                            {{-- From Country --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="from_country" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">From Country (ISO Code)</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="text" id="from_country" wire:model="from_country" maxlength="2" placeholder="e.g., ZA"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- To Country --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="to_country" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">To Country (ISO Code)</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="text" id="to_country" wire:model="to_country" maxlength="2" placeholder="e.g., KE"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Min Cart Subtotal --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="min_cart_subtotal" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Min Cart Subtotal</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="number" id="min_cart_subtotal" wire:model="min_cart_subtotal" step="0.01" min="0"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Max Cart Subtotal --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="max_cart_subtotal" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Max Cart Subtotal</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="number" id="max_cart_subtotal" wire:model="max_cart_subtotal" step="0.01" min="0"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Min Weight --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="min_weight" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Min Weight (kg)</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="number" id="min_weight" wire:model="min_weight" step="0.01" min="0"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Max Weight --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="max_weight" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Max Weight (kg)</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="number" id="max_weight" wire:model="max_weight" step="0.01" min="0"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Applies Per Item --}}
+                            <div class="col-span-full">
+                                <label class="flex items-center">
+                                    <input type="checkbox" wire:model="applies_per_item"
+                                        class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600">
+                                    <span class="ml-2 text-sm text-gray-900 dark:text-gray-100">Apply fee per item (instead of total cart weight)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Fee Configuration --}}
+                    <div class="grid grid-cols-1 gap-x-8 gap-y-10 pb-12 md:grid-cols-3">
+                        <div>
+                            <h2 class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">Fee Configuration</h2>
+                            <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-300">
+                                Configure how the shipping fee is calculated.
+                            </p>
+                        </div>
+
+                        <div class="grid max-w-2xl grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 md:col-span-2">
+                            {{-- Fee Type --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="fee_type" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100 required">Fee Type</label>
+                                <div class="mt-2">
+                                    <select id="fee_type" wire:model.live="fee_type"
+                                        class="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-base text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6">
+                                        <option value="flat">Flat Fee</option>
+                                        <option value="per_kg">Per Kilogram</option>
+                                    </select>
+                                    <span class="text-red-500 text-sm italic"> {{ $errors->first('fee_type') }}</span>
+                                </div>
+                            </div>
+
+                            @if($fee_type === 'flat')
+                                {{-- Flat Fee --}}
+                                <div class="col-span-full sm:col-span-3">
+                                    <label for="flat_fee" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100 required">Flat Fee</label>
+                                    <div class="mt-2">
+                                        <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                            <input type="number" id="flat_fee" wire:model="flat_fee" step="0.01" min="0"
+                                                class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                        </div>
+                                        <span class="text-red-500 text-sm italic"> {{ $errors->first('flat_fee') }}</span>
+                                    </div>
+                                </div>
+                            @else
+                                {{-- Per KG Fee --}}
+                                <div class="col-span-full sm:col-span-3">
+                                    <label for="per_kg_fee" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100 required">Per Kilogram Fee</label>
+                                    <div class="mt-2">
+                                        <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                            <input type="number" id="per_kg_fee" wire:model="per_kg_fee" step="0.01" min="0"
+                                                class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                        </div>
+                                        <span class="text-red-500 text-sm italic"> {{ $errors->first('per_kg_fee') }}</span>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- Tax & Currency --}}
+                    <div class="grid grid-cols-1 gap-x-8 gap-y-10 pb-12 md:grid-cols-3">
+                        <div>
+                            <h2 class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">Tax & Currency</h2>
+                            <p class="mt-1 text-sm/6 text-gray-600 dark:text-gray-300">
+                                Configure tax rate and currency settings.
+                            </p>
+                        </div>
+
+                        <div class="grid max-w-2xl grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6 md:col-span-2">
+                            {{-- Tax Rate --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="tax_rate" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Tax Rate (0-1)</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="number" id="tax_rate" wire:model="tax_rate" step="0.0001" min="0" max="1" placeholder="e.g., 0.16 for 16%"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Currency --}}
+                            <div class="col-span-full sm:col-span-3">
+                                <label for="currency" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Currency Code (ISO)</label>
+                                <div class="mt-2">
+                                    <div class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
+                                        <input type="text" id="currency" wire:model="currency" maxlength="3" placeholder="e.g., USD"
+                                            class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
+                                    </div>
+                                </div>
+                                <p class="mt-3 text-sm/6 text-gray-600 dark:text-gray-300">Leave empty to use base currency</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Form Actions --}}
+                    <div class="flex items-center justify-end gap-x-3 border-t border-gray-900/10 dark:border-gray-100/10 pt-4">
+                        <button type="button" wire:click="cancel"
+                            class="text-sm font-semibold text-gray-900 dark:text-gray-100">Cancel</button>
+
+                        <button type="submit" wire:loading.attr="disabled"
+                            class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+                            <span wire:loading.remove>Update Rule</span>
+                            <span wire:loading>Updating...</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
-        </form>
-    </div>
+            </form>
+        </div>
+    </x-admin-panel>
 </div>
