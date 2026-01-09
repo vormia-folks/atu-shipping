@@ -21,37 +21,90 @@ A Laravel package for rule-based shipping fee and shipping tax calculation engin
 
 ## Installation
 
-Install the package via Composer:
+Before installing ATU Shipping, ensure you have Laravel, Vormia, and A2Commerce installed. See the [A2Commerce installation guide](https://github.com/a2-atu/a2commerce) for detailed instructions on installing A2Commerce and its dependencies.
+
+### Step 1: Install ATU Shipping
 
 ```bash
 composer require vormia-folks/atu-shipping
 ```
 
-Publish the configuration file:
+### Step 2: Run ATU Shipping Installation
 
 ```bash
-php artisan vendor:publish --tag=atu-shipping-config
+php artisan atushipping:install
 ```
 
-Run the installation command to set up database tables:
+This will automatically install ATU Shipping with all files and configurations:
+
+**Automatically Installed:**
+
+- ✅ All migration files copied to `database/migrations`
+- ✅ Seeder file copied to `database/seeders`
+- ✅ Configuration file copied to `config/atu-shipping.php`
+- ✅ Environment variables added to `.env` and `.env.example`
+- ✅ Shipping routes (commented out) added to `routes/api.php`
+
+**Installation Options:**
+
+- `--no-overwrite`: Keep existing files instead of replacing them
+- `--skip-env`: Leave `.env` files untouched
+
+**Example:**
 
 ```bash
-php artisan atu:shipping:install
+# Install without overwriting existing files
+php artisan atushipping:install --no-overwrite
+
+# Install without modifying .env files
+php artisan atushipping:install --skip-env
 ```
 
-This will:
-- Run all necessary migrations
-- Publish configuration files
-- Set up the database structure
+### Step 3: Run Migrations and Seeders
+
+The installation command will prompt you to run migrations and seeders. You can also run them manually:
+
+```bash
+# Run migrations
+php artisan migrate
+
+# Run seeders to create default couriers
+php artisan db:seed --class=ATUShippingSeeder
+```
 
 ## Configuration
 
-After installation, you can configure the package in `config/atu-shipping.php`. The configuration file includes settings for:
+After installation, you can configure the package in `config/atu-shipping.php`:
+
+```php
+return [
+    'default_origin_country' => env('ATU_SHIPPING_DEFAULT_ORIGIN_COUNTRY', 'ZA'),
+    'base_currency' => env('ATU_SHIPPING_BASE_CURRENCY', config('a2_commerce.currency', 'USD')),
+    'enable_logging' => env('ATU_SHIPPING_ENABLE_LOGGING', true),
+];
+```
+
+The configuration file includes settings for:
 
 - Default origin country
-- Currency settings
+- Base currency for shipping calculations
 - Logging preferences
 - Integration with ATU Multi-Currency (optional)
+
+## Environment Variables
+
+The following environment variables are added to your `.env` file during installation:
+
+```env
+# ATU Shipping Configuration
+ATU_SHIPPING_DEFAULT_ORIGIN_COUNTRY=ZA
+ATU_SHIPPING_BASE_CURRENCY=USD
+ATU_SHIPPING_ENABLE_LOGGING=true
+```
+
+- `ATU_SHIPPING_DEFAULT_ORIGIN_COUNTRY`: Default origin country code (ISO 3166-1 alpha-2) if not specified when calculating shipping
+- `ATU_SHIPPING_BASE_CURRENCY`: Base currency code for shipping calculations. Falls back to A2 Commerce currency if not set
+- `ATU_SHIPPING_ENABLE_LOGGING`: Whether to log shipping selections (default: `true`). Logging happens at checkout or when manually triggered
 
 ## Usage
 
@@ -125,20 +178,114 @@ The package creates the following tables:
 - `atu_shipping_fees` - Fee structures
 - `atu_shipping_logs` - Shipping selection logs
 
-## Commands
+## Available Commands
+
+### Install Command
+
+Install the package with all necessary files and configurations:
 
 ```bash
-# Install the package (run migrations, publish configs)
-php artisan atu:shipping:install
+php artisan atushipping:install
+```
 
-# Update the package
-php artisan atu:shipping:update
+**Options:**
 
-# Uninstall the package
-php artisan atu:shipping:uninstall
+- `--skip-env`: Do not modify .env files
+- `--no-overwrite`: Skip existing files instead of replacing
 
-# Show help
-php artisan atu:shipping:help
+**Automatically Installed:**
+
+- ✅ All migration files copied to `database/migrations`
+- ✅ Seeder file copied to `database/seeders`
+- ✅ Configuration file copied to `config/atu-shipping.php`
+- ✅ Environment variables added to `.env` and `.env.example`
+- ✅ Shipping routes (commented out) added to `routes/api.php`
+
+**Example:**
+
+```bash
+# Install without overwriting existing files
+php artisan atushipping:install --no-overwrite
+
+# Install without modifying .env files
+php artisan atushipping:install --skip-env
+```
+
+### Update Command
+
+Update package files and configurations, refresh migrations and seeders, clear caches:
+
+```bash
+php artisan atushipping:update
+```
+
+**Options:**
+
+- `--skip-env`: Do not modify .env files
+- `--force`: Skip confirmation prompts
+
+This command will:
+
+- Update all package files and stubs
+- Update environment files (if not skipped)
+- Ensure shipping routes are in `routes/api.php`
+- Clear all application caches
+
+**Example:**
+
+```bash
+# Update without confirmation
+php artisan atushipping:update --force
+
+# Update without modifying .env files
+php artisan atushipping:update --skip-env
+```
+
+### Uninstall Command
+
+Remove all package files and configurations:
+
+```bash
+php artisan atushipping:uninstall
+```
+
+**Options:**
+
+- `--keep-env`: Preserve environment variables
+- `--force`: Skip confirmation prompts
+
+**⚠️ Warning:** This will remove all ATU Shipping files and optionally drop database tables. A backup will be created in `storage/app/atushipping-final-backup-{timestamp}/`.
+
+**Example:**
+
+```bash
+# Uninstall without confirmation
+php artisan atushipping:uninstall --force
+
+# Uninstall but keep environment variables
+php artisan atushipping:uninstall --keep-env
+```
+
+**Note:** The uninstall command will:
+
+- Remove all copied files and stubs
+- Remove routes from `routes/api.php`
+- Optionally remove environment variables
+- Create a backup before removal
+- Clear application caches
+
+After uninstalling, you'll need to manually remove the package from composer:
+
+```bash
+composer remove vormia-folks/atu-shipping
+```
+
+### Help Command
+
+Display help information and usage examples:
+
+```bash
+php artisan atushipping:help
 ```
 
 ## UI Installation
@@ -170,7 +317,7 @@ Add the following routes to your admin routes file (e.g., `routes/admin.php` or 
 ```php
 use Livewire\Volt\Volt;
 
-Route::prefix('admin/atu/shipping')->name('admin.atu.shipping.')->middleware(['auth', 'admin'])->group(function () {
+Route::prefix('admin/atu/shipping')->name('admin.atu.shipping.')->group(function () {
     // Couriers
     Volt::route('couriers', 'admin.atu.shipping.couriers.index')->name('couriers.index');
     Volt::route('couriers/create', 'admin.atu.shipping.couriers.create')->name('couriers.create');
@@ -251,6 +398,7 @@ Add the following menu items to your admin sidebar (e.g., `resources/views/compo
 ```
 
 **Reference Files:**
+
 - Admin Routes: `vendor/vormia-folks/atu-shipping/src/stubs/reference/admin-routes-to-add.php`
 - API Routes: `vendor/vormia-folks/atu-shipping/src/stubs/reference/routes-to-add.php`
 - Sidebar Menu: `vendor/vormia-folks/atu-shipping/src/stubs/reference/sidebar-menu-to-add.blade.php`
@@ -275,11 +423,13 @@ Your cart and order models should implement these interfaces to work with ATU Sh
 ## Logging
 
 Shipping selections are logged automatically when:
+
 - A courier is selected at checkout
 - Manual admin recalculation occurs
 - Reporting is generated
 
 Logs are stored in the `atu_shipping_logs` table and include:
+
 - Courier and rule used
 - Cart/order context
 - Calculated fees and taxes
@@ -292,10 +442,37 @@ If ATU Multi-Currency is installed and configured, the package will automaticall
 ## Non-Goals
 
 ATU Shipping does NOT:
+
 - Split shipments (v1)
 - Call courier APIs directly
 - Track shipments
 - Persist shipping data into A2 core tables
+
+## Uninstallation
+
+To completely remove the package:
+
+```bash
+# Uninstall package files and optionally drop tables
+php artisan atushipping:uninstall
+
+# Remove from composer
+composer remove vormia-folks/atu-shipping
+```
+
+**Note:** The uninstall command will:
+
+- Remove all copied files and stubs
+- Remove routes from `routes/api.php`
+- Optionally drop database tables (with confirmation)
+- Optionally remove environment variables
+- Create a backup before removal
+
+**Backup Location:** A final backup is created in `storage/app/atushipping-final-backup-{timestamp}/` containing:
+
+- Configuration file (`config/atu-shipping.php`)
+- Routes file (`routes/api.php`)
+- Environment file (`.env`)
 
 ## License
 
@@ -314,6 +491,7 @@ For detailed implementation guides and architecture documentation, see:
 ### Migration Errors
 
 If migrations fail:
+
 - Ensure all A2Commerce migrations have been run first
 - Check that the database connection is configured correctly
 - Verify foreign key constraints are supported
@@ -321,6 +499,7 @@ If migrations fail:
 ### No Shipping Options Returned
 
 If `options()` returns an empty array:
+
 - Verify that couriers are active in the database
 - Check that rules are configured and active
 - Ensure origin and destination countries are set correctly
@@ -329,6 +508,7 @@ If `options()` returns an empty array:
 ### Rule Not Matching
 
 If a rule is not being applied:
+
 - Check rule priority (lower numbers are evaluated first)
 - Verify all rule constraints match (country, weight, subtotal, etc.)
 - Ensure the rule is active
@@ -341,6 +521,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Support
 
 For issues, questions, or contributions:
+
 - Check the documentation in `docs/atu-shipping.md`
 - Review [A2Commerce documentation](https://github.com/a2-atu/a2commerce) for base functionality
 - Open an issue on the package repository

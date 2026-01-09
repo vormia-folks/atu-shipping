@@ -8,7 +8,7 @@
  */
 
 // >>> ATU Shipping Admin Routes START
-// Route::prefix('admin/atu/shipping')->name('admin.atu.shipping.')->middleware(['auth', 'admin'])->group(function () {
+// Route::prefix('admin/atu/shipping')->name('admin.atu.shipping.')->group(function () {
 //     // Couriers
 //     Route::get('/couriers', \App\Livewire\Admin\Atu\Shipping\Couriers\Index::class)->name('couriers.index');
 //     Route::get('/couriers/create', \App\Livewire\Admin\Atu\Shipping\Couriers\Create::class)->name('couriers.create');
