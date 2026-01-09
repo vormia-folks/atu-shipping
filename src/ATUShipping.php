@@ -4,7 +4,7 @@ namespace Vormia\ATUShipping;
 
 class ATUShipping
 {
-    public const VERSION = '0.1.0';
+    public const VERSION = '1.2.0';
 
     /**
      * Absolute path to the package stubs.
