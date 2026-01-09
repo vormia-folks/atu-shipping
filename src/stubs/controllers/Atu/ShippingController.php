@@ -13,7 +13,7 @@ use Vormia\ATUShipping\Facades\ATU;
  * ATU Shipping API Controller
  *
  * This controller provides API endpoints for calculating and selecting shipping options.
- * This is a reference file. The actual controller is automatically copied to app/Http/Controllers/Atu/ShippingController.php during installation.
+ * This file is automatically copied to app/Http/Controllers/Atu/ShippingController.php during installation.
  */
 class ShippingController
 {

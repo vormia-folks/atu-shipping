@@ -341,25 +341,25 @@ If you need API endpoints for calculating shipping options, add these routes to 
 Route::prefix('atu/shipping')->group(function () {
     // Calculate shipping options for a cart
     Route::post('/calculate', [
-        \App\Http\Controllers\Api\Atu\ShippingController::class,
+        \App\Http\Controllers\Atu\ShippingController::class,
         'calculate'
     ])->name('api.shipping.calculate');
 
     // Get shipping options for a cart
     Route::get('/options', [
-        \App\Http\Controllers\Api\Atu\ShippingController::class,
+        \App\Http\Controllers\Atu\ShippingController::class,
         'options'
     ])->name('api.shipping.options');
 
     // Select shipping courier for an order
     Route::post('/select', [
-        \App\Http\Controllers\Api\Atu\ShippingController::class,
+        \App\Http\Controllers\Atu\ShippingController::class,
         'select'
     ])->name('api.shipping.select');
 });
 ```
 
-**Note:** You'll need to create the `ShippingController` class at `app/Http/Controllers/Api/Atu/ShippingController.php`. A reference implementation is available at `vendor/vormia-folks/atu-shipping/src/stubs/reference/shipping-controller.php`. Copy this file and implement the `resolveCart()` and `resolveOrder()` methods based on your application's Cart and Order models.
+**Note:** The `ShippingController` class is automatically copied to `app/Http/Controllers/Atu/ShippingController.php` during installation. You'll need to implement the `resolveCart()` and `resolveOrder()` methods based on your application's Cart and Order models.
 
 #### API Endpoints
 

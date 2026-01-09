@@ -19,7 +19,9 @@ class Installer
 // >>> ATU Shipping Routes START
 // Shipping calculation endpoints (if needed)
 // Route::prefix('atu/shipping')->group(function () {
-//     Route::post('/calculate', [\App\Http\Controllers\ATU\Shipping\ShippingController::class, 'calculate'])->name('api.shipping.calculate');
+//     Route::post('/calculate', [\App\Http\Controllers\Atu\ShippingController::class, 'calculate'])->name('api.shipping.calculate');
+//     Route::get('/options', [\App\Http\Controllers\Atu\ShippingController::class, 'options'])->name('api.shipping.options');
+//     Route::post('/select', [\App\Http\Controllers\Atu\ShippingController::class, 'select'])->name('api.shipping.select');
 // });
 // >>> ATU Shipping Routes END
 PHP;
