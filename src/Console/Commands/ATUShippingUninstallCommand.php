@@ -304,11 +304,37 @@ class ATUShippingUninstallCommand extends Command
 
         if ($removed === 0) {
             $this->line("   ℹ️  No ATU Shipping migrations found to remove");
+            // Still try to clean up migrations table in case files were already deleted
+            $this->removeMigrationTableEntries();
             return;
         }
 
+        // Step 4: Remove entries from migrations table
+        $this->removeMigrationTableEntries();
+
         if (! $rolledBack && $removed > 0) {
             $this->line('   ℹ️  Note: Some migrations could not be rolled back, but tables were dropped directly.');
+        }
+    }
+
+    /**
+     * Remove migration entries from the migrations table
+     */
+    private function removeMigrationTableEntries(): void
+    {
+        try {
+            $deleted = DB::table('migrations')
+                ->where('migration', 'like', '%atu_shipping_%')
+                ->delete();
+
+            if ($deleted > 0) {
+                $this->info("   ✅ Removed {$deleted} migration entry/entries from migrations table");
+            } else {
+                $this->line('   ℹ️  No migration entries found in migrations table to remove');
+            }
+        } catch (\Exception $e) {
+            $this->warn('   ⚠️  Could not remove migration entries from migrations table: ' . $e->getMessage());
+            $this->line('   ⚠️  You may need to manually remove entries from the migrations table');
         }
     }
 
