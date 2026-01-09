@@ -141,6 +141,120 @@ php artisan atu:shipping:uninstall
 php artisan atu:shipping:help
 ```
 
+## UI Installation
+
+After installing the base package, you can set up the admin UI components for managing shipping couriers, rules, and logs. The package includes reference files and view stubs that show you exactly what routes, menu items, and views to add.
+
+### View Files
+
+The package includes Livewire view files in `vendor/vormia-folks/atu-shipping/src/stubs/resources/views/livewire/admin/atu/shipping/`:
+
+- **Couriers**: `couriers/index.blade.php`, `couriers/create.blade.php`, `couriers/edit.blade.php`
+- **Rules**: `rules/index.blade.php`, `rules/create.blade.php`, `rules/edit.blade.php`
+- **Logs**: `logs/index.blade.php`
+
+Copy these files to your `resources/views/livewire/admin/atu/shipping/` directory to use the admin UI.
+
+### Reference Files
+
+The package provides reference files in `vendor/vormia-folks/atu-shipping/src/stubs/reference/`:
+
+- **`admin-routes-to-add.php`** - Admin routes for managing couriers, rules, and logs
+- **`routes-to-add.php`** - API routes for calculating shipping options (optional)
+- **`sidebar-menu-to-add.blade.php`** - Sidebar menu items for the admin panel
+
+### Manual Admin Routes Setup
+
+Add the following routes to your admin routes file (e.g., `routes/admin.php` or `routes/web.php` with admin middleware):
+
+```php
+use Livewire\Volt\Volt;
+
+Route::prefix('admin/atu/shipping')->name('admin.atu.shipping.')->middleware(['auth', 'admin'])->group(function () {
+    // Couriers
+    Volt::route('couriers', 'admin.atu.shipping.couriers.index')->name('couriers.index');
+    Volt::route('couriers/create', 'admin.atu.shipping.couriers.create')->name('couriers.create');
+    Volt::route('couriers/{id}/edit', 'admin.atu.shipping.couriers.edit')->name('couriers.edit');
+
+    // Rules
+    Volt::route('rules', 'admin.atu.shipping.rules.index')->name('rules.index');
+    Volt::route('rules/create', 'admin.atu.shipping.rules.create')->name('rules.create');
+    Volt::route('rules/{id}/edit', 'admin.atu.shipping.rules.edit')->name('rules.edit');
+
+    // Logs
+    Volt::route('logs', 'admin.atu.shipping.logs.index')->name('logs.index');
+});
+```
+
+**Note:** If you have configured your own starterkit, make sure to add `use Livewire\Volt\Volt;` at the top of your routes file.
+
+### Manual API Routes Setup (Optional)
+
+If you need API endpoints for calculating shipping options, add these routes to `routes/api.php`:
+
+```php
+Route::prefix('atu/shipping')->group(function () {
+    // Calculate shipping options for a cart
+    Route::post('/calculate', [
+        \App\Http\Controllers\ATU\Shipping\ShippingController::class,
+        'calculate'
+    ])->name('api.shipping.calculate');
+
+    // Get shipping options for a cart
+    Route::get('/options', [
+        \App\Http\Controllers\ATU\Shipping\ShippingController::class,
+        'options'
+    ])->name('api.shipping.options');
+
+    // Select shipping courier for an order
+    Route::post('/select', [
+        \App\Http\Controllers\ATU\Shipping\ShippingController::class,
+        'select'
+    ])->name('api.shipping.select');
+});
+```
+
+**Note:** You'll need to create the `ShippingController` class to handle these endpoints. The controller should use the `ATU::shipping()` facade to perform calculations.
+
+### Manual Sidebar Menu Setup
+
+Add the following menu items to your admin sidebar (e.g., `resources/views/components/layouts/app/sidebar.blade.php`):
+
+```blade
+@if (auth()->user()?->isAdminOrSuperAdmin())
+    <hr />
+
+    {{-- Shipping Menu Item --}}
+    <flux:navlist.item icon="truck" :href="route('admin.atu.shipping.couriers.index')"
+        :current="request()->routeIs('admin.atu.shipping.*')" wire:navigate>
+        {{ __('Shipping') }}
+    </flux:navlist.item>
+
+    {{-- Shipping Couriers Submenu --}}
+    <flux:navlist.item icon="truck" :href="route('admin.atu.shipping.couriers.index')"
+        :current="request()->routeIs('admin.atu.shipping.couriers.*')" wire:navigate>
+        {{ __('Couriers') }}
+    </flux:navlist.item>
+
+    {{-- Shipping Rules Submenu --}}
+    <flux:navlist.item icon="document-text" :href="route('admin.atu.shipping.rules.index')"
+        :current="request()->routeIs('admin.atu.shipping.rules.*')" wire:navigate>
+        {{ __('Shipping Rules') }}
+    </flux:navlist.item>
+
+    {{-- Shipping Logs Submenu --}}
+    <flux:navlist.item icon="document-duplicate" :href="route('admin.atu.shipping.logs.index')"
+        :current="request()->routeIs('admin.atu.shipping.logs.index')" wire:navigate>
+        {{ __('Shipping Logs') }}
+    </flux:navlist.item>
+@endif
+```
+
+**Reference Files:**
+- Admin Routes: `vendor/vormia-folks/atu-shipping/src/stubs/reference/admin-routes-to-add.php`
+- API Routes: `vendor/vormia-folks/atu-shipping/src/stubs/reference/routes-to-add.php`
+- Sidebar Menu: `vendor/vormia-folks/atu-shipping/src/stubs/reference/sidebar-menu-to-add.blade.php`
+
 ## Contracts
 
 The package uses interfaces for cart and order contexts:
@@ -187,10 +301,54 @@ ATU Shipping does NOT:
 
 MIT
 
+## Documentation
+
+For detailed implementation guides and architecture documentation, see:
+
+- **Build Guide**: `docs/atu-shipping.md` - Authoritative implementation guide and technical documentation
+- **Package Creation Guide**: `docs/package-creation-guide.md` - Guide for creating similar packages
+- **A2Commerce Documentation**: See [A2Commerce GitHub repository](https://github.com/a2-atu/a2commerce) for base functionality
+
+## Troubleshooting
+
+### Migration Errors
+
+If migrations fail:
+- Ensure all A2Commerce migrations have been run first
+- Check that the database connection is configured correctly
+- Verify foreign key constraints are supported
+
+### No Shipping Options Returned
+
+If `options()` returns an empty array:
+- Verify that couriers are active in the database
+- Check that rules are configured and active
+- Ensure origin and destination countries are set correctly
+- Verify that cart/order implements the required interfaces (`CartInterface` or `OrderInterface`)
+
+### Rule Not Matching
+
+If a rule is not being applied:
+- Check rule priority (lower numbers are evaluated first)
+- Verify all rule constraints match (country, weight, subtotal, etc.)
+- Ensure the rule is active
+- Check that the courier associated with the rule is active
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
 ## Support
 
-For issues, questions, or contributions, please refer to the [documentation](docs/atu-shipping.md) or open an issue on the repository.
+For issues, questions, or contributions:
+- Check the documentation in `docs/atu-shipping.md`
+- Review [A2Commerce documentation](https://github.com/a2-atu/a2commerce) for base functionality
+- Open an issue on the package repository
 
 ## Version
 
 Current version: **0.1.0**
+
+---
+
+**Built with ❤️ for the A2 Commerce ecosystem**
