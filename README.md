@@ -341,25 +341,131 @@ If you need API endpoints for calculating shipping options, add these routes to 
 Route::prefix('atu/shipping')->group(function () {
     // Calculate shipping options for a cart
     Route::post('/calculate', [
-        \App\Http\Controllers\ATU\Shipping\ShippingController::class,
+        \App\Http\Controllers\Api\Atu\ShippingController::class,
         'calculate'
     ])->name('api.shipping.calculate');
 
     // Get shipping options for a cart
     Route::get('/options', [
-        \App\Http\Controllers\ATU\Shipping\ShippingController::class,
+        \App\Http\Controllers\Api\Atu\ShippingController::class,
         'options'
     ])->name('api.shipping.options');
 
     // Select shipping courier for an order
     Route::post('/select', [
-        \App\Http\Controllers\ATU\Shipping\ShippingController::class,
+        \App\Http\Controllers\Api\Atu\ShippingController::class,
         'select'
     ])->name('api.shipping.select');
 });
 ```
 
-**Note:** You'll need to create the `ShippingController` class to handle these endpoints. The controller should use the `ATU::shipping()` facade to perform calculations.
+**Note:** You'll need to create the `ShippingController` class at `app/Http/Controllers/Api/Atu/ShippingController.php`. A reference implementation is available at `vendor/vormia-folks/atu-shipping/src/stubs/reference/shipping-controller.php`. Copy this file and implement the `resolveCart()` and `resolveOrder()` methods based on your application's Cart and Order models.
+
+#### API Endpoints
+
+##### POST `/atu/shipping/calculate`
+
+Calculate shipping options for a cart.
+
+**Request Body:**
+
+```json
+{
+  "cart_id": 123,
+  "from": "ZA",
+  "to": "KE"
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "courier": "DHL",
+      "fee": 755.0,
+      "tax": 120.8,
+      "total": 875.8,
+      "currency": "ZAR",
+      "rule_id": 12,
+      "tax_rate": 0.16
+    }
+  ]
+}
+```
+
+**Error Response (422 Validation Error):**
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "cart_id": ["The cart id field is required."],
+    "from": ["The from field is required."]
+  }
+}
+```
+
+##### GET `/atu/shipping/options`
+
+Get shipping options for a cart (same as calculate but via GET request).
+
+**Query Parameters:**
+
+- `cart_id` (required): Cart ID
+- `from` (required): Origin country code (ISO 3166-1 alpha-2)
+- `to` (required): Destination country code (ISO 3166-1 alpha-2)
+
+**Example Request:**
+
+```
+GET /atu/shipping/options?cart_id=123&from=ZA&to=KE
+```
+
+**Response:** Same format as POST `/calculate`
+
+##### POST `/atu/shipping/select`
+
+Select a shipping courier for an order and log the selection.
+
+**Request Body:**
+
+```json
+{
+  "order_id": 456,
+  "courier": "DHL",
+  "from": "ZA",
+  "to": "KE"
+}
+```
+
+**Note:** `from` and `to` are optional. If not provided, the order's default origin and destination countries will be used (if available via `OrderInterface` methods).
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "fee": 755.0,
+    "tax": 120.8,
+    "total": 875.8,
+    "currency": "ZAR"
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+
+```json
+{
+  "success": false,
+  "message": "Failed to select courier. No matching rule found or courier is not available."
+}
+```
 
 ### Manual Sidebar Menu Setup
 
@@ -393,6 +499,7 @@ Add the following menu items to your admin sidebar (e.g., `resources/views/compo
 
 - Admin Routes: `vendor/vormia-folks/atu-shipping/src/stubs/reference/admin-routes-to-add.php`
 - API Routes: `vendor/vormia-folks/atu-shipping/src/stubs/reference/routes-to-add.php`
+- API Controller: `vendor/vormia-folks/atu-shipping/src/stubs/reference/shipping-controller.php`
 - Sidebar Menu: `vendor/vormia-folks/atu-shipping/src/stubs/reference/sidebar-menu-to-add.blade.php`
 
 ## Contracts
