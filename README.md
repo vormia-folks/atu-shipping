@@ -369,12 +369,6 @@ Add the following menu items to your admin sidebar (e.g., `resources/views/compo
 @if (auth()->user()?->isAdminOrSuperAdmin())
     <hr />
 
-    {{-- Shipping Menu Item --}}
-    <flux:navlist.item icon="truck" :href="route('admin.atu.shipping.couriers.index')"
-        :current="request()->routeIs('admin.atu.shipping.*')" wire:navigate>
-        {{ __('Shipping') }}
-    </flux:navlist.item>
-
     {{-- Shipping Couriers Submenu --}}
     <flux:navlist.item icon="truck" :href="route('admin.atu.shipping.couriers.index')"
         :current="request()->routeIs('admin.atu.shipping.couriers.*')" wire:navigate>
