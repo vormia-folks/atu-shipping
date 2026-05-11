@@ -43,11 +43,15 @@ This will automatically install ATU Shipping with all files and configurations:
 
 **Automatically Installed:**
 
-- ✅ All migration files copied to `database/migrations`
-- ✅ Seeder file copied to `database/seeders`
+- ✅ Migrations are auto-loaded from the package (via `loadMigrationsFrom()` — no copy)
+- ✅ Seeder file copied to `database/seeders/ATUShippingSeeder.php`
 - ✅ Configuration file copied to `config/atu-shipping.php`
+- ✅ Reference `ShippingController` copied to `app/Http/Controllers/Atu/ShippingController.php`
+- ✅ Admin Livewire views copied to `resources/views/livewire/admin/atu/shipping/**`
 - ✅ Environment variables added to `.env` and `.env.example`
-- ✅ Shipping routes (commented out) added to `routes/api.php`
+- ✅ Live API routes added to `routes/api.php` (between START/END markers)
+- ✅ Live admin routes injected into the `auth` middleware group of `routes/web.php`
+- ✅ Flux sidebar menu entries injected into your admin `sidebar.blade.php` (if found)
 
 **Installation Options:**
 
@@ -66,10 +70,12 @@ php artisan atushipping:install --skip-env
 
 ### Step 3: Run Migrations and Seeders
 
-The installation command will prompt you to run migrations and seeders. You can also run them manually:
+Migrations are loaded automatically from inside the package (no copies in
+`database/migrations`), so a plain `php artisan migrate` is all you need. The
+installer prompts to run both for you:
 
 ```bash
-# Run migrations
+# Run migrations (package-shipped, auto-loaded)
 php artisan migrate
 
 # Run seeders to create default couriers
@@ -78,9 +84,9 @@ php artisan db:seed --class=ATUShippingSeeder
 
 ### Currency columns (3 to 4 characters)
 
-A later migration, `2026_02_17_100000_alter_atu_shipping_tables_for_4char_currency_codes.php`, widens the `currency` column on `atu_shipping_rules` and `atu_shipping_logs` from 3 to 4 characters so you can store ISO 4217 codes and extended 4-character codes (for example with ATU Multi-Currency). Run `php artisan migrate` after copying updated stubs from the package.
+A later migration, `2026_02_17_100000_alter_atu_shipping_tables_for_4char_currency_codes.php`, widens the `currency` column on `atu_shipping_rules` and `atu_shipping_logs` from 3 to 4 characters so you can store ISO 4217 codes and extended 4-character codes (for example with ATU Multi-Currency). It ships inside the package and runs automatically on `php artisan migrate`.
 
-**If production was already altered manually** (columns are already `CHAR(4)` but this migration never ran), add a row to the `migrations` table so Laravel skips it: set `migration` to `2026_02_17_100000_alter_atu_shipping_tables_for_4char_currency_codes` and use a `batch` value consistent with your app. Alternatively, confirm the live column definitions match what that migration would produce, then run `php artisan migrate` if the migration is not yet recorded.
+**If production was already altered manually** (columns are already `CHAR(4)` but this migration never ran), add a row to the `migrations` table so Laravel skips it: set `migration` to `2026_02_17_100000_alter_atu_shipping_tables_for_4char_currency_codes` and use a `batch` value consistent with your app.
 
 ## Configuration
 
@@ -205,11 +211,15 @@ php artisan atushipping:install
 
 **Automatically Installed:**
 
-- ✅ All migration files copied to `database/migrations`
-- ✅ Seeder file copied to `database/seeders`
+- ✅ Migrations auto-loaded from the package (no copy)
+- ✅ Seeder file copied to `database/seeders/ATUShippingSeeder.php`
 - ✅ Configuration file copied to `config/atu-shipping.php`
+- ✅ Reference `ShippingController` copied to `app/Http/Controllers/Atu/ShippingController.php`
+- ✅ Admin Livewire views copied to `resources/views/livewire/admin/atu/shipping/**`
 - ✅ Environment variables added to `.env` and `.env.example`
-- ✅ Shipping routes (commented out) added to `routes/api.php`
+- ✅ Live API routes added to `routes/api.php`
+- ✅ Live admin routes injected into `routes/web.php` (inside the auth middleware group)
+- ✅ Flux sidebar menu entries injected into your sidebar blade (if found)
 
 **Example:**
 
@@ -477,33 +487,32 @@ Select a shipping courier for an order and log the selection.
 }
 ```
 
-### Manual Sidebar Menu Setup
+### Sidebar Menu
 
-Add the following menu items to your admin sidebar (e.g., `resources/views/components/layouts/app/sidebar.blade.php`):
+The installer automatically injects the menu below into your Flux sidebar blade
+(at `resources/views/layouts/app/sidebar.blade.php` or
+`resources/views/components/layouts/app/sidebar.blade.php`). The injected block is
+fenced by markers so `atushipping:uninstall` can remove it cleanly.
+
+If your sidebar lives elsewhere, copy this manually from
+`vendor/vormia-folks/atu-shipping/src/stubs/reference/sidebar-menu-to-add.blade.php`:
 
 ```blade
-@if (auth()->user()?->isAdminOrSuperAdmin())
-    <hr />
-
-    {{-- Shipping Couriers Submenu --}}
-    <flux:navlist.item icon="truck" :href="route('admin.atu.shipping.couriers.index')"
-        :current="request()->routeIs('admin.atu.shipping.couriers.*')" wire:navigate>
-        {{ __('Couriers') }}
-    </flux:navlist.item>
-
-    {{-- Shipping Rules Submenu --}}
-    <flux:navlist.item icon="document-text" :href="route('admin.atu.shipping.rules.index')"
-        :current="request()->routeIs('admin.atu.shipping.rules.*')" wire:navigate>
-        {{ __('Shipping Rules') }}
-    </flux:navlist.item>
-
-    {{-- Shipping Logs Submenu --}}
-    <flux:navlist.item icon="document-duplicate" :href="route('admin.atu.shipping.logs.index')"
-        :current="request()->routeIs('admin.atu.shipping.logs.index')" wire:navigate>
-        {{ __('Shipping Logs') }}
-    </flux:navlist.item>
-@endif
+{{-- >>> ATU Shipping Sidebar START --}}
+<flux:sidebar.item icon="truck" :href="route('admin.atu.shipping.couriers.index')" wire:navigate>
+    {{ __('Shipping couriers') }}
+</flux:sidebar.item>
+<flux:sidebar.item icon="rectangle-stack" :href="route('admin.atu.shipping.rules.index')" wire:navigate>
+    {{ __('Shipping rules') }}
+</flux:sidebar.item>
+<flux:sidebar.item icon="clipboard-document-list" :href="route('admin.atu.shipping.logs.index')" wire:navigate>
+    {{ __('Shipping logs') }}
+</flux:sidebar.item>
+{{-- >>> ATU Shipping Sidebar END --}}
 ```
+
+The package uses `flux:sidebar.item` (not `flux:navlist.item`) to match the
+default Flux admin sidebar from `vormiaphp/ui-livewireflux-admin`.
 
 **Reference Files:**
 

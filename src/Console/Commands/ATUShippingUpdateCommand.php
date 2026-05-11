@@ -26,24 +26,26 @@ class ATUShippingUpdateCommand extends Command
             return self::SUCCESS;
         }
 
-        // Update files
         $this->step('Updating package files and stubs...');
         $results = $installer->update($touchEnv);
         $this->displayCopyResults($results['copied']);
 
-        // Environment variables
         $this->step('Updating environment files...');
         if ($touchEnv) {
-            $this->updateEnvFiles();
+            $this->displayEnvResults($results['env'] ?? []);
         } else {
             $this->line('   ⏭️  Environment keys skipped (--skip-env flag used).');
         }
 
-        // Routes
-        $this->step('Ensuring routes...');
-        $this->handleRoutes($results['routes'] ?? []);
+        $this->step('Ensuring API routes (routes/api.php)...');
+        $this->handleApiRoutes($results['routes'] ?? []);
 
-        // Clear caches
+        $this->step('Ensuring Admin routes (routes/web.php)...');
+        $this->handleAdminRoutes($results['admin_routes'] ?? []);
+
+        $this->step('Ensuring Flux sidebar menu...');
+        $this->handleSidebar($results['sidebar'] ?? []);
+
         $this->step('Clearing application caches...');
         $this->clearCaches();
 
@@ -97,32 +99,23 @@ class ATUShippingUpdateCommand extends Command
         return $absolutePath;
     }
 
-    /**
-     * Update .env and .env.example files
-     */
-    private function updateEnvFiles(): void
+    private function displayEnvResults(array $envResults): void
     {
-        $installer = app(Installer::class);
-        $results = $installer->ensureEnvKeys();
+        $changed = false;
 
-        $hasChanges = false;
-        foreach ($results as $file => $keys) {
-            if (!empty($keys)) {
-                $hasChanges = true;
+        foreach ($envResults as $file => $keys) {
+            if (! empty($keys)) {
+                $changed = true;
+                $this->info('   ✅ Added to ' . basename($file) . ': ' . implode(', ', $keys));
             }
         }
 
-        if ($hasChanges) {
-            $this->info('   ✅ Environment files updated successfully.');
-        } else {
+        if (! $changed) {
             $this->info('   ✅ Environment files already contain ATU Shipping configuration.');
         }
     }
 
-    /**
-     * Handle routes results
-     */
-    private function handleRoutes(array $routes): void
+    private function handleApiRoutes(array $routes): void
     {
         if ($routes === []) {
             return;
@@ -134,10 +127,52 @@ class ATUShippingUpdateCommand extends Command
         }
 
         if ($routes['added'] ?? false) {
-            $this->info('   ✅ Shipping routes added to routes/api.php');
+            $this->info('   ✅ API routes added to routes/api.php');
         } else {
-            $this->info('   ✅ Shipping routes already exist in routes/api.php');
+            $this->info('   ✅ API routes already present in routes/api.php');
         }
+    }
+
+    private function handleAdminRoutes(array $routes): void
+    {
+        if ($routes === []) {
+            return;
+        }
+
+        if ($routes['skipped'] ?? false) {
+            $this->warn('   ⚠️  routes/web.php not found.');
+            return;
+        }
+
+        if (! ($routes['added'] ?? false)) {
+            $this->info('   ✅ Admin routes already present in routes/web.php');
+            return;
+        }
+
+        if (($routes['placement'] ?? null) === 'auth_group') {
+            $this->info('   ✅ Admin routes added inside the auth middleware group in routes/web.php');
+        } else {
+            $this->info('   ✅ Admin routes appended to routes/web.php');
+        }
+    }
+
+    private function handleSidebar(array $sidebar): void
+    {
+        if ($sidebar === []) {
+            return;
+        }
+
+        if ($sidebar['skipped'] ?? false) {
+            $this->warn('   ⚠️  Flux sidebar blade not found — skipped.');
+            return;
+        }
+
+        if (! ($sidebar['added'] ?? false)) {
+            $this->info('   ✅ Sidebar menu already present.');
+            return;
+        }
+
+        $this->info('   ✅ Sidebar menu injected (' . ($sidebar['placement'] ?? 'unknown') . ').');
     }
 
     /**

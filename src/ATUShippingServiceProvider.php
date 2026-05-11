@@ -19,10 +19,15 @@ class ATUShippingServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Register version instance
         $this->app->instance('atushipping.version', ATUShipping::VERSION);
 
-        // Register Installer as singleton
+        // Merge the package config so config('atu-shipping.*') works even before
+        // the user runs atushipping:install (standard Laravel package convention).
+        $this->mergeConfigFrom(
+            ATUShipping::stubsPath('config/atu-shipping.php'),
+            'atu-shipping'
+        );
+
         $this->app->singleton(Installer::class, function (Application $app) {
             return new Installer(
                 new Filesystem(),
@@ -31,13 +36,9 @@ class ATUShippingServiceProvider extends ServiceProvider
             );
         });
 
-        // Register RuleEvaluator as singleton
         $this->app->singleton(RuleEvaluator::class);
-
-        // Register FeeCalculator as singleton
         $this->app->singleton(FeeCalculator::class);
 
-        // Register ShippingService as singleton
         $this->app->singleton(ShippingService::class, function (Application $app) {
             return new ShippingService(
                 $app->make(RuleEvaluator::class),
@@ -48,6 +49,10 @@ class ATUShippingServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Load migrations from the package itself; no need to copy them into
+        // the host app's database/migrations folder.
+        $this->loadMigrationsFrom(ATUShipping::stubsPath('migrations'));
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ATUShippingInstallCommand::class,

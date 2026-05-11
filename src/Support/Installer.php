@@ -7,24 +7,78 @@ use Illuminate\Support\Str;
 
 class Installer
 {
-    // Define environment keys to add/remove (empty for now, can be added later)
+    /**
+     * Env keys this package writes into .env / .env.example on install,
+     * and removes on uninstall.
+     */
     private const ENV_KEYS = [
-        // 'ATU_SHIPPING_DEFAULT_COUNTRY' => '',
+        'ATU_SHIPPING_DEFAULT_ORIGIN_COUNTRY' => 'ZA',
+        'ATU_SHIPPING_BASE_CURRENCY' => 'USD',
+        'ATU_SHIPPING_ENABLE_LOGGING' => 'true',
     ];
 
-    // Route markers for injection
-    private const ROUTE_MARK_START = '// >>> ATU Shipping Routes START';
-    private const ROUTE_MARK_END = '// >>> ATU Shipping Routes END';
-    private const ROUTE_BLOCK = <<<'PHP'
-// >>> ATU Shipping Routes START
-// Shipping calculation endpoints (if needed)
-// Route::prefix('atu/shipping')->group(function () {
-//     Route::post('/calculate', [\App\Http\Controllers\Atu\ShippingController::class, 'calculate'])->name('api.shipping.calculate');
-//     Route::get('/options', [\App\Http\Controllers\Atu\ShippingController::class, 'options'])->name('api.shipping.options');
-//     Route::post('/select', [\App\Http\Controllers\Atu\ShippingController::class, 'select'])->name('api.shipping.select');
-// });
-// >>> ATU Shipping Routes END
+    // API route markers (routes/api.php)
+    private const API_ROUTE_MARK_START = '// >>> ATU Shipping API Routes START';
+    private const API_ROUTE_MARK_END = '// >>> ATU Shipping API Routes END';
+
+    // Admin route markers (routes/web.php)
+    private const ADMIN_ROUTE_MARK_START = '// >>> ATU Shipping Admin Routes START';
+    private const ADMIN_ROUTE_MARK_END = '// >>> ATU Shipping Admin Routes END';
+
+    // Sidebar markers (blade)
+    private const SIDEBAR_MARK_START = '{{-- >>> ATU Shipping Sidebar START --}}';
+    private const SIDEBAR_MARK_END = '{{-- >>> ATU Shipping Sidebar END --}}';
+
+    /**
+     * Default API route block — uncommented, ready to use.
+     * Follows the UILivewireFlux pattern of writing live routes (not comments).
+     */
+    private const API_ROUTE_BLOCK = <<<'PHP'
+// >>> ATU Shipping API Routes START
+Route::prefix('atu/shipping')->group(function () {
+    Route::post('/calculate', [\App\Http\Controllers\Atu\ShippingController::class, 'calculate'])->name('api.shipping.calculate');
+    Route::get('/options', [\App\Http\Controllers\Atu\ShippingController::class, 'options'])->name('api.shipping.options');
+    Route::post('/select', [\App\Http\Controllers\Atu\ShippingController::class, 'select'])->name('api.shipping.select');
+});
+// >>> ATU Shipping API Routes END
 PHP;
+
+    /**
+     * Default Admin (web) route block — uncommented, requires Livewire 4's Route::livewire().
+     */
+    private const ADMIN_ROUTE_BLOCK = <<<'PHP'
+// >>> ATU Shipping Admin Routes START
+Route::prefix('admin/atu/shipping')->name('admin.atu.shipping.')->group(function () {
+    Route::livewire('couriers', 'admin.atu.shipping.couriers.index')->name('couriers.index');
+    Route::livewire('couriers/create', 'admin.atu.shipping.couriers.create')->name('couriers.create');
+    Route::livewire('couriers/{id}/edit', 'admin.atu.shipping.couriers.edit')->name('couriers.edit');
+
+    Route::livewire('rules', 'admin.atu.shipping.rules.index')->name('rules.index');
+    Route::livewire('rules/create', 'admin.atu.shipping.rules.create')->name('rules.create');
+    Route::livewire('rules/{id}/edit', 'admin.atu.shipping.rules.edit')->name('rules.edit');
+
+    Route::livewire('logs', 'admin.atu.shipping.logs.index')->name('logs.index');
+});
+// >>> ATU Shipping Admin Routes END
+PHP;
+
+    /**
+     * Default sidebar menu block — Flux sidebar items, fenced by Blade comment markers
+     * so the uninstaller can locate and remove them.
+     */
+    private const SIDEBAR_BLOCK = <<<'BLADE'
+{{-- >>> ATU Shipping Sidebar START --}}
+<flux:sidebar.item icon="truck" :href="route('admin.atu.shipping.couriers.index')" wire:navigate>
+    {{ __('Shipping couriers') }}
+</flux:sidebar.item>
+<flux:sidebar.item icon="rectangle-stack" :href="route('admin.atu.shipping.rules.index')" wire:navigate>
+    {{ __('Shipping rules') }}
+</flux:sidebar.item>
+<flux:sidebar.item icon="clipboard-document-list" :href="route('admin.atu.shipping.logs.index')" wire:navigate>
+    {{ __('Shipping logs') }}
+</flux:sidebar.item>
+{{-- >>> ATU Shipping Sidebar END --}}
+BLADE;
 
     public function __construct(
         private readonly Filesystem $files,
@@ -33,17 +87,25 @@ PHP;
     ) {}
 
     /**
-     * Install fresh assets and env keys.
+     * Install fresh assets, env keys, routes and sidebar menu.
      *
-     * @return array{copied: array, env: array, routes: array}
+     * @return array{
+     *     copied: array{copied: list<string>, skipped: list<string>},
+     *     env: array<string, list<string>>,
+     *     routes: array,
+     *     admin_routes: array,
+     *     sidebar: array,
+     * }
      */
     public function install(bool $overwrite = true, bool $touchEnv = true): array
     {
-        $copied = $this->copyStubs($overwrite);
-        $envChanges = $touchEnv ? $this->ensureEnvKeys() : [];
-        $routes = $this->ensureRoutes();
-
-        return ['copied' => $copied, 'env' => $envChanges, 'routes' => $routes];
+        return [
+            'copied'        => $this->copyStubs($overwrite),
+            'env'           => $touchEnv ? $this->ensureEnvKeys() : [],
+            'routes'        => $this->ensureApiRoutes(),
+            'admin_routes'  => $this->ensureAdminRoutes(),
+            'sidebar'       => $this->ensureSidebarMenu(),
+        ];
     }
 
     /**
@@ -55,29 +117,40 @@ PHP;
     }
 
     /**
-     * Remove copied assets and env keys.
-     *
-     * @return array{removed: array, env: array, routes: array}
+     * Remove copied assets, env keys, routes and sidebar.
      */
     public function uninstall(bool $touchEnv = true): array
     {
-        $removed = $this->removeStubTargets();
-        $env = $touchEnv ? $this->removeEnvKeys() : [];
-        $routes = $this->removeRoutes();
-
-        return ['removed' => $removed, 'env' => $env, 'routes' => $routes];
+        return [
+            'removed'       => $this->removeStubTargets(),
+            'env'           => $touchEnv ? $this->removeEnvKeys() : [],
+            'routes'        => $this->removeApiRoutes(),
+            'admin_routes'  => $this->removeAdminRoutes(),
+            'sidebar'       => $this->removeSidebarMenu(),
+        ];
     }
 
+    // ---------------------------------------------------------------------
+    // Stub copy
+    // ---------------------------------------------------------------------
+
+    /**
+     * @return array{copied: list<string>, skipped: list<string>}
+     */
     private function copyStubs(bool $overwrite): array
     {
         $results = ['copied' => [], 'skipped' => []];
-        $stubFiles = $this->files->allFiles($this->stubsPath);
 
-        foreach ($stubFiles as $file) {
+        if (! $this->files->isDirectory($this->stubsPath)) {
+            return $results;
+        }
+
+        foreach ($this->files->allFiles($this->stubsPath) as $file) {
             /** @var \SplFileInfo $file */
             if (str_starts_with($file->getFilename(), '.')) {
                 continue;
             }
+
             $relative = ltrim(Str::after($file->getPathname(), $this->stubsPath), '/\\');
             [$root, $subPath] = $this->splitRoot($relative);
             $target = $this->targetPath($root, $subPath);
@@ -88,7 +161,7 @@ PHP;
 
             $this->files->ensureDirectoryExists(dirname($target));
 
-            if (!$overwrite && $this->files->exists($target)) {
+            if (! $overwrite && $this->files->exists($target)) {
                 $results['skipped'][] = $target;
                 continue;
             }
@@ -100,28 +173,33 @@ PHP;
         return $results;
     }
 
+    /**
+     * @return array{0: string, 1: string}
+     */
     private function splitRoot(string $relative): array
     {
         $parts = explode('/', $relative, 2);
-        $root = $parts[0] ?? '';
-        $rest = $parts[1] ?? '';
-
-        return [$root, $rest];
+        return [$parts[0] ?? '', $parts[1] ?? ''];
     }
 
+    /**
+     * Map a stubs/<root>/<subPath> file to its destination in the host app.
+     * Returns null for stubs we deliberately don't copy (migrations -> loaded
+     * from the package; reference/ -> docs only).
+     */
     private function targetPath(string $root, string $subPath): ?string
     {
         $root = trim($root, '/\\');
 
         $applicationRoots = [
-            'app' => '',
-            'controllers' => 'Http/Controllers',
-            'models' => 'Models',
-            'services' => 'Services',
+            'app'           => '',
+            'controllers'   => 'Http/Controllers',
+            'models'        => 'Models',
+            'services'      => 'Services',
             'notifications' => 'Notifications',
-            'listeners' => 'Listeners',
-            'jobs' => 'Jobs',
-            'events' => 'Events',
+            'listeners'     => 'Listeners',
+            'jobs'          => 'Jobs',
+            'events'        => 'Events',
         ];
 
         if (array_key_exists($root, $applicationRoots)) {
@@ -129,17 +207,16 @@ PHP;
         }
 
         return match ($root) {
-            'config' => $this->pathJoin($this->appBasePath, 'config', $subPath),
-            'migrations' => $this->pathJoin($this->appBasePath, 'database', 'migrations', $subPath),
-            'database' => $this->pathJoin($this->appBasePath, 'database', $subPath),
+            'config'    => $this->pathJoin($this->appBasePath, 'config', $subPath),
+            // migrations live inside the package and are loaded via
+            // loadMigrationsFrom() in the service provider; do not copy.
+            'migrations' => null,
+            // reference/ holds documentation snippets — never copy.
+            'reference' => null,
+            'database'  => $this->pathJoin($this->appBasePath, 'database', $subPath),
             'resources' => $this->pathJoin($this->appBasePath, 'resources', $subPath),
-            default => null,
+            default     => null,
         };
-    }
-
-    private function appPath(string $relative): string
-    {
-        return $this->appPathWithPrefix('', $relative);
     }
 
     private function appPathWithPrefix(string $prefix, string $relative): string
@@ -158,6 +235,10 @@ PHP;
         return $this->pathJoin(...$segments);
     }
 
+    /**
+     * Studly-case the first segment of an app-relative path so directories
+     * like "atu" become "Atu" (PSR-4-friendly).
+     */
     private function normalizeAppRelative(string $relative): string
     {
         $relative = ltrim($relative, '/\\');
@@ -182,11 +263,10 @@ PHP;
         }
 
         $first = $filtered->first();
-        $isAbsolute = str_starts_with($first, '/') || (PHP_OS_FAMILY === 'Windows' && preg_match('/^[A-Z]:/i', $first));
+        $isAbsolute = str_starts_with($first, '/')
+            || (PHP_OS_FAMILY === 'Windows' && preg_match('/^[A-Z]:/i', $first));
 
-        // Preserve absolute path prefix
         if ($isAbsolute) {
-            // For absolute paths, only trim trailing slashes from first part
             $first = rtrim($first, '/\\');
             $rest = $filtered->skip(1)
                 ->map(fn($p) => trim($p, '/\\'))
@@ -197,12 +277,18 @@ PHP;
                 : $first . DIRECTORY_SEPARATOR . $rest->implode(DIRECTORY_SEPARATOR);
         }
 
-        // For relative paths, trim all slashes from all parts
         return $filtered
             ->map(fn($p) => trim($p, '/\\'))
             ->implode(DIRECTORY_SEPARATOR);
     }
 
+    // ---------------------------------------------------------------------
+    // .env keys
+    // ---------------------------------------------------------------------
+
+    /**
+     * @return array<string, list<string>> Map of env-file path to keys added.
+     */
     public function ensureEnvKeys(): array
     {
         $paths = [
@@ -225,10 +311,9 @@ PHP;
 
             if ($updated !== $existing) {
                 $this->files->put($envPath, $updated);
-                $added[$envPath] = $addedKeys;
-            } else {
-                $added[$envPath] = [];
             }
+
+            $added[$envPath] = $addedKeys;
         }
 
         return $added;
@@ -241,7 +326,7 @@ PHP;
         $presentKeys = $this->extractExistingKeys($lines);
 
         foreach (self::ENV_KEYS as $key => $value) {
-            if (!in_array($key, $presentKeys, true)) {
+            if (! in_array($key, $presentKeys, true)) {
                 $addedKeys[] = $key;
             }
         }
@@ -250,8 +335,7 @@ PHP;
             return $current;
         }
 
-        $block = [];
-        $block[] = '# ATU Shipping Configuration';
+        $block = ['# ATU Shipping Configuration'];
         foreach ($addedKeys as $key) {
             $block[] = $key . '=' . self::ENV_KEYS[$key];
         }
@@ -265,7 +349,7 @@ PHP;
     {
         $keys = [];
         foreach ($lines as $line) {
-            if (str_starts_with($line, '#') || !str_contains($line, '=')) {
+            if (str_starts_with($line, '#') || ! str_contains($line, '=')) {
                 continue;
             }
 
@@ -276,6 +360,9 @@ PHP;
         return $keys;
     }
 
+    /**
+     * @return array<string, list<string>>
+     */
     public function removeEnvKeys(): array
     {
         $paths = [
@@ -286,7 +373,7 @@ PHP;
         $removed = [];
 
         foreach ($paths as $envPath) {
-            if (!$this->files->exists($envPath)) {
+            if (! $this->files->exists($envPath)) {
                 $removed[$envPath] = [];
                 continue;
             }
@@ -304,60 +391,6 @@ PHP;
         return $removed;
     }
 
-    public function ensureRoutes(): array
-    {
-        $apiPath = $this->pathJoin($this->appBasePath, 'routes', 'api.php');
-        $updated = false;
-
-        if (! $this->files->exists($apiPath)) {
-            return [
-                'path' => $apiPath,
-                'added' => false,
-                'import_added' => false,
-                'skipped' => true,
-            ];
-        }
-
-        $contents = $this->files->get($apiPath);
-
-        if (! str_contains($contents, self::ROUTE_MARK_START)) {
-            $contents = rtrim($contents) . "\n\n" . self::ROUTE_BLOCK . "\n";
-            $this->files->put($apiPath, $contents);
-            $updated = true;
-        }
-
-        return [
-            'path' => $apiPath,
-            'added' => $updated,
-            'import_added' => false,
-            'skipped' => false,
-        ];
-    }
-
-    public function removeRoutes(): array
-    {
-        $apiPath = $this->pathJoin($this->appBasePath, 'routes', 'api.php');
-        if (!$this->files->exists($apiPath)) {
-            return ['path' => $apiPath, 'removed' => false];
-        }
-
-        $contents = $this->files->get($apiPath);
-        $pattern = sprintf(
-            '#\\n?%s.*?%s\\s*\\n?#s',
-            preg_quote(self::ROUTE_MARK_START, '#'),
-            preg_quote(self::ROUTE_MARK_END, '#')
-        );
-
-        $updated = preg_replace($pattern, "\n", $contents, 1, $count);
-
-        if ($count > 0) {
-            $normalized = preg_replace("/[\r\n]{3,}/", "\n\n", $updated ?? '');
-            $this->files->put($apiPath, rtrim($normalized) . "\n");
-        }
-
-        return ['path' => $apiPath, 'removed' => $count > 0];
-    }
-
     private function stripEnvKeys(string $content, ?array &$removedKeys = []): string
     {
         $removedKeys = [];
@@ -365,56 +398,250 @@ PHP;
         $remaining = [];
 
         foreach ($lines as $line) {
-            // Skip the ATU Shipping Configuration comment line
+            // Drop the section header we wrote in.
             if (str_contains($line, '# ATU Shipping Configuration')) {
                 continue;
             }
 
-            // Skip lines that are comments
+            // Keep other comments verbatim.
             $trimmedLine = trim($line);
             if (str_starts_with($trimmedLine, '#')) {
                 $remaining[] = $line;
                 continue;
             }
 
-            // Check if this line contains an ATU env key
             if (str_contains($line, '=')) {
                 [$key] = explode('=', $line, 2);
                 $key = trim($key);
 
-                // Remove any leading/trailing whitespace and check against ENV_KEYS
                 if (array_key_exists($key, self::ENV_KEYS)) {
                     $removedKeys[] = $key;
-                    continue; // Skip this line
+                    continue;
                 }
             }
 
             $remaining[] = $line;
         }
 
-        // Normalize extra blank lines (remove 3+ consecutive newlines)
+        // Collapse any runs of 3+ blank lines we may have left behind.
         $normalized = preg_replace("/[\r\n]{3,}/", "\n\n", implode(PHP_EOL, $remaining));
 
         return rtrim($normalized) . PHP_EOL;
     }
 
+    // ---------------------------------------------------------------------
+    // API routes (routes/api.php)
+    // ---------------------------------------------------------------------
+
+    /**
+     * @return array{path: string, added: bool, skipped: bool}
+     */
+    public function ensureApiRoutes(): array
+    {
+        $apiPath = $this->pathJoin($this->appBasePath, 'routes', 'api.php');
+
+        if (! $this->files->exists($apiPath)) {
+            return ['path' => $apiPath, 'added' => false, 'skipped' => true];
+        }
+
+        $contents = $this->files->get($apiPath);
+
+        if (str_contains($contents, self::API_ROUTE_MARK_START)) {
+            return ['path' => $apiPath, 'added' => false, 'skipped' => false];
+        }
+
+        $contents = rtrim($contents) . "\n\n" . self::API_ROUTE_BLOCK . "\n";
+        $this->files->put($apiPath, $contents);
+
+        return ['path' => $apiPath, 'added' => true, 'skipped' => false];
+    }
+
+    /**
+     * @return array{path: string, removed: bool}
+     */
+    public function removeApiRoutes(): array
+    {
+        return $this->removeMarkedBlock(
+            $this->pathJoin($this->appBasePath, 'routes', 'api.php'),
+            self::API_ROUTE_MARK_START,
+            self::API_ROUTE_MARK_END
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // Admin routes (routes/web.php) — UILivewireFlux-style
+    // ---------------------------------------------------------------------
+
+    /**
+     * Inject admin routes inside the auth middleware group in routes/web.php.
+     * Falls back to appending at the end of the file (still marker-fenced)
+     * if no auth group can be located.
+     *
+     * @return array{path: string, added: bool, skipped: bool, placement: string}
+     */
+    public function ensureAdminRoutes(): array
+    {
+        $webPath = $this->pathJoin($this->appBasePath, 'routes', 'web.php');
+
+        if (! $this->files->exists($webPath)) {
+            return ['path' => $webPath, 'added' => false, 'skipped' => true, 'placement' => 'none'];
+        }
+
+        $contents = $this->files->get($webPath);
+
+        if (str_contains($contents, self::ADMIN_ROUTE_MARK_START)) {
+            return ['path' => $webPath, 'added' => false, 'skipped' => false, 'placement' => 'existing'];
+        }
+
+        $indented = $this->indentBlock(self::ADMIN_ROUTE_BLOCK, '    ');
+        $authPattern = '/(Route::middleware\(\s*\[[^\]]*[\'"]auth[\'"][^\]]*\]\s*\)\s*->\s*group\s*\(\s*function\s*\(\s*\)\s*\{)/s';
+
+        if (preg_match($authPattern, $contents, $matches, PREG_OFFSET_CAPTURE)) {
+            $insertAt = $matches[1][1] + strlen($matches[1][0]);
+            $contents = substr_replace($contents, "\n" . $indented . "\n", $insertAt, 0);
+            $this->files->put($webPath, $contents);
+
+            return ['path' => $webPath, 'added' => true, 'skipped' => false, 'placement' => 'auth_group'];
+        }
+
+        // Fallback: append at the bottom; still marker-fenced for removal.
+        $contents = rtrim($contents) . "\n\n" . self::ADMIN_ROUTE_BLOCK . "\n";
+        $this->files->put($webPath, $contents);
+
+        return ['path' => $webPath, 'added' => true, 'skipped' => false, 'placement' => 'appended'];
+    }
+
+    public function removeAdminRoutes(): array
+    {
+        return $this->removeMarkedBlock(
+            $this->pathJoin($this->appBasePath, 'routes', 'web.php'),
+            self::ADMIN_ROUTE_MARK_START,
+            self::ADMIN_ROUTE_MARK_END
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // Sidebar menu (Flux sidebar blade)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Inject the Flux sidebar menu items inside the Platform group, falling
+     * back to before </flux:sidebar> if no Platform group is present.
+     *
+     * @return array{path: string|null, added: bool, skipped: bool, placement: string}
+     */
+    public function ensureSidebarMenu(): array
+    {
+        $sidebarPath = $this->resolveSidebarPath();
+
+        if ($sidebarPath === null) {
+            return ['path' => null, 'added' => false, 'skipped' => true, 'placement' => 'none'];
+        }
+
+        $contents = $this->files->get($sidebarPath);
+
+        if (str_contains($contents, self::SIDEBAR_MARK_START)) {
+            return ['path' => $sidebarPath, 'added' => false, 'skipped' => false, 'placement' => 'existing'];
+        }
+
+        $indented = $this->indentBlock(self::SIDEBAR_BLOCK, '        ');
+
+        // 1) Inject inside the Platform flux:sidebar.group, before its closing tag.
+        // We can't match balanced quotes (the heading is often __('Platform')),
+        // so just confirm the opening tag mentions "Platform" between its <...>.
+        if (preg_match(
+            '/<flux:sidebar\.group\b[^>]*Platform[^>]*>/i',
+            $contents,
+            $match,
+            PREG_OFFSET_CAPTURE
+        )) {
+            $afterOpen = $match[0][1] + strlen($match[0][0]);
+            $closeRel = strpos($contents, '</flux:sidebar.group>', $afterOpen);
+
+            if ($closeRel !== false) {
+                $contents = substr_replace($contents, "\n" . $indented . "\n    ", $closeRel, 0);
+                $this->files->put($sidebarPath, $contents);
+
+                return ['path' => $sidebarPath, 'added' => true, 'skipped' => false, 'placement' => 'platform_group'];
+            }
+        }
+
+        // 2) Fallback: before </flux:sidebar>.
+        $closeSidebar = strpos($contents, '</flux:sidebar>');
+        if ($closeSidebar !== false) {
+            $contents = substr_replace($contents, $indented . "\n", $closeSidebar, 0);
+            $this->files->put($sidebarPath, $contents);
+
+            return ['path' => $sidebarPath, 'added' => true, 'skipped' => false, 'placement' => 'sidebar_close'];
+        }
+
+        // 3) Last resort: append at end of file.
+        $contents = rtrim($contents) . "\n\n" . self::SIDEBAR_BLOCK . "\n";
+        $this->files->put($sidebarPath, $contents);
+
+        return ['path' => $sidebarPath, 'added' => true, 'skipped' => false, 'placement' => 'appended'];
+    }
+
+    public function removeSidebarMenu(): array
+    {
+        $sidebarPath = $this->resolveSidebarPath();
+
+        if ($sidebarPath === null) {
+            return ['path' => null, 'removed' => false];
+        }
+
+        return $this->removeMarkedBlock(
+            $sidebarPath,
+            self::SIDEBAR_MARK_START,
+            self::SIDEBAR_MARK_END
+        );
+    }
+
+    /**
+     * Locate the host app's main Flux sidebar blade file. Checks the
+     * commonly-used locations used by livewire/flux starter kits.
+     */
+    public function resolveSidebarPath(): ?string
+    {
+        $candidates = [
+            $this->pathJoin($this->appBasePath, 'resources', 'views', 'layouts', 'app', 'sidebar.blade.php'),
+            $this->pathJoin($this->appBasePath, 'resources', 'views', 'components', 'layouts', 'app', 'sidebar.blade.php'),
+        ];
+
+        foreach ($candidates as $path) {
+            if ($this->files->exists($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    // ---------------------------------------------------------------------
+    // Stub removal
+    // ---------------------------------------------------------------------
+
+    /**
+     * Remove files we previously copied. Migrations are never touched here
+     * since they're now loaded from the package itself.
+     *
+     * @return list<string>
+     */
     private function removeStubTargets(): array
     {
         $removed = [];
-        $stubFiles = $this->files->allFiles($this->stubsPath);
 
-        foreach ($stubFiles as $file) {
+        if (! $this->files->isDirectory($this->stubsPath)) {
+            return $removed;
+        }
+
+        foreach ($this->files->allFiles($this->stubsPath) as $file) {
             /** @var \SplFileInfo $file */
             $relative = ltrim(Str::after($file->getPathname(), $this->stubsPath), '/\\');
             [$root, $subPath] = $this->splitRoot($relative);
             $target = $this->targetPath($root, $subPath);
 
-            if ($target === null || !$this->files->exists($target)) {
-                continue;
-            }
-
-            // Skip if the file is a migration file
-            if (str_contains($target, 'migrations')) {
+            if ($target === null || ! $this->files->exists($target)) {
                 continue;
             }
 
@@ -431,14 +658,14 @@ PHP;
         $root = trim($root, '/\\');
 
         $applicationRoots = [
-            'app' => '',
-            'controllers' => 'Http/Controllers',
-            'models' => 'Models',
-            'services' => 'Services',
+            'app'           => '',
+            'controllers'   => 'Http/Controllers',
+            'models'        => 'Models',
+            'services'      => 'Services',
             'notifications' => 'Notifications',
-            'listeners' => 'Listeners',
-            'jobs' => 'Jobs',
-            'events' => 'Events',
+            'listeners'     => 'Listeners',
+            'jobs'          => 'Jobs',
+            'events'        => 'Events',
         ];
 
         if (array_key_exists($root, $applicationRoots)) {
@@ -446,11 +673,10 @@ PHP;
         }
 
         return match ($root) {
-            'config' => $this->pathJoin($this->appBasePath, 'config'),
-            'migrations' => $this->pathJoin($this->appBasePath, 'database', 'migrations'),
-            'database' => $this->pathJoin($this->appBasePath, 'database'),
+            'config'    => $this->pathJoin($this->appBasePath, 'config'),
+            'database'  => $this->pathJoin($this->appBasePath, 'database'),
             'resources' => $this->pathJoin($this->appBasePath, 'resources'),
-            default => null,
+            default     => null,
         };
     }
 
@@ -464,7 +690,7 @@ PHP;
         $path = rtrim($path, '/\\');
 
         while (str_starts_with($path, $stopAt)) {
-            if (!$this->files->exists($path) || !$this->files->isDirectory($path)) {
+            if (! $this->files->exists($path) || ! $this->files->isDirectory($path)) {
                 break;
             }
 
@@ -480,5 +706,49 @@ PHP;
 
             $path = dirname($path);
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------
+
+    /**
+     * Strip a START..END marker block from a file (with surrounding
+     * blank-line cleanup). Used for routes and sidebar removal.
+     *
+     * @return array{path: string, removed: bool}
+     */
+    private function removeMarkedBlock(string $path, string $startMarker, string $endMarker): array
+    {
+        if (! $this->files->exists($path)) {
+            return ['path' => $path, 'removed' => false];
+        }
+
+        $contents = $this->files->get($path);
+
+        $pattern = sprintf(
+            '#\n?[ \t]*%s.*?%s[ \t]*\n?#s',
+            preg_quote($startMarker, '#'),
+            preg_quote($endMarker, '#')
+        );
+
+        $updated = preg_replace($pattern, "\n", $contents, 1, $count);
+
+        if ($count > 0) {
+            $normalized = preg_replace("/[\r\n]{3,}/", "\n\n", $updated ?? '');
+            $this->files->put($path, rtrim($normalized) . "\n");
+        }
+
+        return ['path' => $path, 'removed' => $count > 0];
+    }
+
+    /**
+     * Indent every line of $block by $indent (preserving the existing newlines).
+     */
+    private function indentBlock(string $block, string $indent): string
+    {
+        $lines = preg_split('/\r\n|\r|\n/', $block);
+        $indented = array_map(fn(string $line) => $line === '' ? '' : $indent . $line, $lines);
+        return implode("\n", $indented);
     }
 }

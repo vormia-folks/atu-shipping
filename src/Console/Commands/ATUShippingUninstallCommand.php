@@ -8,12 +8,24 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 
 class ATUShippingUninstallCommand extends Command
 {
     protected $signature = 'atushipping:uninstall {--keep-env : Leave env keys untouched} {--force : Skip confirmation prompts}';
 
     protected $description = 'Remove all ATU Shipping package files and configurations';
+
+    /**
+     * Tables the package owns; safe across MySQL/Postgres/SQLite via Schema.
+     */
+    private const TABLES = [
+        // Drop child tables first to avoid FK errors.
+        'atu_shipping_logs',
+        'atu_shipping_fees',
+        'atu_shipping_rules',
+        'atu_shipping_couriers',
+    ];
 
     public function handle(Installer $installer): int
     {
@@ -22,66 +34,46 @@ class ATUShippingUninstallCommand extends Command
         $force = $this->option('force');
         $keepEnv = $this->option('keep-env');
 
-        // Warning message
         $this->error('⚠️  DANGER: This will remove ATU Shipping from your application!');
         $this->warn('   This action will:');
         $this->warn('   • Remove all ATU Shipping copied files and stubs');
-        $this->warn('   • Remove shipping routes from routes/api.php');
+        $this->warn('   • Remove API routes from routes/api.php');
+        $this->warn('   • Remove Admin routes from routes/web.php');
+        $this->warn('   • Remove Flux sidebar menu entries (if injected)');
         $this->warn('   • Note: Composer packages are NOT uninstalled');
         $this->newLine();
 
-        if (!$force && !$this->confirm('Are you absolutely sure you want to uninstall ATU Shipping?', false)) {
+        if (! $force && ! $this->confirm('Are you absolutely sure you want to uninstall ATU Shipping?', false)) {
             $this->info('❌ Uninstall cancelled.');
             return self::SUCCESS;
         }
 
-        // Ask about migrations
         $undoMigrations = false;
-        if (!$force) {
+        if (! $force) {
             $this->newLine();
-            $this->error('⚠️  WARNING: Rolling back migrations will DELETE ALL DATA in ATU Shipping database tables!');
+            $this->error('⚠️  WARNING: Dropping shipping tables will DELETE ALL DATA in them!');
             $this->warn('   This includes: couriers, rules, fees, and logs.');
-            $undoMigrations = $this->confirm('Do you wish to undo migrations? (This will rollback and delete migration files)', false);
-        } else {
-            // In force mode, default to not rolling back migrations for safety
-            $undoMigrations = false;
+            $undoMigrations = $this->confirm('Do you wish to drop ATU Shipping database tables?', false);
         }
 
-        // Ask about .env variables
         $removeEnvVars = false;
-        if (!$keepEnv && !$force) {
+        if (! $keepEnv && ! $force) {
             $this->newLine();
             $removeEnvVars = $this->confirm('Do you wish to remove ATU Shipping environment variables from .env and .env.example?', false);
-        } elseif ($keepEnv) {
-            $removeEnvVars = false;
-        } else {
-            // In force mode without --keep-env, default to removing env vars
+        } elseif (! $keepEnv) {
+            // In force mode without --keep-env, default to removing env vars.
             $removeEnvVars = true;
         }
 
-        // Step 1: Create backup
         $this->step('Creating final backup...');
         $this->createFinalBackup();
 
-        // Step 2: Remove files
         $this->step('Removing ATU Shipping files and stubs...');
         $touchEnv = $removeEnvVars;
         $results = $installer->uninstall($touchEnv);
 
-        $removedFiles = $results['removed'] ?? [];
-        $removedCount = count($removedFiles);
+        $this->displayRemovedFiles($results['removed'] ?? []);
 
-        if ($removedCount > 0) {
-            foreach ($removedFiles as $file) {
-                $this->line("   ✅ Removed: " . $this->getRelativePath($file));
-            }
-            $this->info("   ✅ {$removedCount} installed file(s) removed successfully.");
-        } else {
-            $this->warn('   ⚠️  No installed files found to remove.');
-            $this->line('   This could mean files were already deleted or the package was never installed.');
-        }
-
-        // Step 3: Environment variables
         $this->step('Cleaning up environment files...');
         if ($removeEnvVars) {
             $this->handleEnvResults($results['env'] ?? []);
@@ -89,21 +81,24 @@ class ATUShippingUninstallCommand extends Command
             $this->line('   ⏭️  Environment keys preserved (skipped by user choice).');
         }
 
-        // Step 4: Routes
-        $this->step('Removing API routes...');
-        $this->handleRoutes($results['routes'] ?? []);
+        $this->step('Removing API routes (routes/api.php)...');
+        $this->handleRoutes($results['routes'] ?? [], 'API');
 
-        // Step 5: Remove migrations for ATU Shipping
+        $this->step('Removing Admin routes (routes/web.php)...');
+        $this->handleRoutes($results['admin_routes'] ?? [], 'Admin');
+
+        $this->step('Removing Flux sidebar menu entries...');
+        $this->handleSidebar($results['sidebar'] ?? []);
+
         if ($undoMigrations) {
-            $this->step('Rolling back and removing ATU Shipping migrations...');
-            $this->removeMigrations();
+            $this->step('Dropping ATU Shipping database tables...');
+            $this->dropTables();
+            $this->cleanupMigrationsTable();
         } else {
-            $this->step('Skipping migration rollback...');
-            $this->line('   ⏭️  Migrations preserved (skipped by user choice).');
-            $this->line('   ⚠️  Note: Migration files and database tables remain. You may need to drop tables manually.');
+            $this->step('Skipping table drop...');
+            $this->line('   ⏭️  Tables preserved (skipped by user choice).');
         }
 
-        // Step 6: Clear caches
         $this->step('Clearing application caches...');
         $this->clearCaches();
 
@@ -112,9 +107,23 @@ class ATUShippingUninstallCommand extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Get relative path from base path for display
-     */
+    private function displayRemovedFiles(array $removedFiles): void
+    {
+        $count = count($removedFiles);
+
+        if ($count === 0) {
+            $this->warn('   ⚠️  No installed files found to remove.');
+            $this->line('   This could mean files were already deleted or the package was never installed.');
+            return;
+        }
+
+        foreach ($removedFiles as $file) {
+            $this->line('   ✅ Removed: ' . $this->getRelativePath($file));
+        }
+
+        $this->info("   ✅ {$count} installed file(s) removed successfully.");
+    }
+
     private function getRelativePath(string $absolutePath): string
     {
         $basePath = base_path();
@@ -124,9 +133,6 @@ class ATUShippingUninstallCommand extends Command
         return $absolutePath;
     }
 
-    /**
-     * Handle environment file results
-     */
     private function handleEnvResults(array $envResults): void
     {
         $envCleaned = false;
@@ -136,44 +142,53 @@ class ATUShippingUninstallCommand extends Command
             $filesChecked[] = basename($file);
 
             if ($keys !== []) {
-                $this->info("   ✅ Removed from " . basename($file) . ": " . implode(', ', $keys));
+                $this->info('   ✅ Removed from ' . basename($file) . ': ' . implode(', ', $keys));
                 $envCleaned = true;
             } else {
-                $this->line("   ℹ️  " . basename($file) . " does not contain ATU Shipping keys");
+                $this->line('   ℹ️  ' . basename($file) . ' does not contain ATU Shipping keys');
             }
         }
 
         if (empty($filesChecked)) {
             $this->warn('   ⚠️  No .env or .env.example files found.');
-        } elseif (!$envCleaned) {
+        } elseif (! $envCleaned) {
             $this->info('   ✅ No ATU Shipping environment keys found to remove.');
         }
     }
 
-    /**
-     * Handle routes results
-     */
-    private function handleRoutes(array $routes): void
+    private function handleRoutes(array $routes, string $label): void
     {
-        if ($routes !== []) {
-            if ($routes['removed'] ?? false) {
-                $this->info('   ✅ Shipping routes removed from routes/api.php');
-            } else {
-                $this->info('   ✅ No route block found to remove.');
-            }
+        if ($routes === []) {
+            return;
+        }
+
+        if ($routes['removed'] ?? false) {
+            $this->info("   ✅ {$label} routes removed.");
+        } else {
+            $this->info("   ℹ️  No {$label} route block found to remove.");
         }
     }
 
-    /**
-     * Clear application caches
-     */
+    private function handleSidebar(array $sidebar): void
+    {
+        if ($sidebar === []) {
+            return;
+        }
+
+        if ($sidebar['removed'] ?? false) {
+            $this->info('   ✅ Sidebar menu entries removed.');
+        } else {
+            $this->info('   ℹ️  No sidebar menu block found to remove.');
+        }
+    }
+
     private function clearCaches(): void
     {
         $cacheCommands = [
             'config:clear' => 'Configuration cache',
-            'route:clear' => 'Route cache',
-            'view:clear' => 'View cache',
-            'cache:clear' => 'Application cache',
+            'route:clear'  => 'Route cache',
+            'view:clear'   => 'View cache',
+            'cache:clear'  => 'Application cache',
         ];
 
         foreach ($cacheCommands as $command => $description) {
@@ -186,22 +201,20 @@ class ATUShippingUninstallCommand extends Command
         }
     }
 
-    /**
-     * Create final backup before uninstallation
-     */
     private function createFinalBackup(): void
     {
         $backupDir = storage_path('app/atushipping-final-backup-' . date('Y-m-d-H-i-s'));
 
-        if (!File::exists($backupDir)) {
+        if (! File::exists($backupDir)) {
             File::makeDirectory($backupDir, 0755, true);
         }
 
         $filesToBackup = [
-            config_path('atu-shipping.php') => $backupDir . '/config/atu-shipping.php',
-            database_path('seeders/ATUShippingSeeder.php') => $backupDir . '/seeders/ATUShippingSeeder.php',
-            base_path('routes/api.php') => $backupDir . '/routes/api.php',
-            base_path('.env') => $backupDir . '/.env',
+            config_path('atu-shipping.php')                  => $backupDir . '/config/atu-shipping.php',
+            database_path('seeders/ATUShippingSeeder.php')   => $backupDir . '/seeders/ATUShippingSeeder.php',
+            base_path('routes/api.php')                      => $backupDir . '/routes/api.php',
+            base_path('routes/web.php')                      => $backupDir . '/routes/web.php',
+            base_path('.env')                                => $backupDir . '/.env',
         ];
 
         foreach ($filesToBackup as $source => $destination) {
@@ -211,12 +224,9 @@ class ATUShippingUninstallCommand extends Command
             }
         }
 
-        $this->info("   ✅ Final backup created in: " . $this->getRelativePath($backupDir));
+        $this->info('   ✅ Final backup created in: ' . $this->getRelativePath($backupDir));
     }
 
-    /**
-     * Display the header
-     */
     private function displayHeader(): void
     {
         $this->newLine();
@@ -225,102 +235,39 @@ class ATUShippingUninstallCommand extends Command
         $this->newLine();
     }
 
-    /**
-     * Display a step message
-     */
     private function step(string $message): void
     {
         $this->info("🗂️  {$message}");
     }
 
     /**
-     * Remove database tables
+     * Drop the package's tables using the Schema facade — portable across
+     * MySQL, PostgreSQL and SQLite (unlike raw "SHOW TABLES" / FK_CHECKS).
      */
-    private function removeDatabaseTables(): void
+    private function dropTables(): void
     {
         try {
-            $prefix = 'atu_shipping_';
-
-            // Get all tables with ATU Shipping prefix
-            $tables = DB::select("SHOW TABLES LIKE '{$prefix}%'");
-
-            if (empty($tables)) {
-                $this->line('   ℹ️  No ATU Shipping tables found.');
-                return;
+            foreach (self::TABLES as $table) {
+                if (Schema::hasTable($table)) {
+                    Schema::dropIfExists($table);
+                    $this->line("   ✅ Dropped table: {$table}");
+                } else {
+                    $this->line("   ℹ️  Table not found: {$table}");
+                }
             }
-
-            // Disable foreign key checks
-            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-
-            foreach ($tables as $table) {
-                $tableName = array_values((array) $table)[0];
-                DB::statement("DROP TABLE IF EXISTS `{$tableName}`");
-                $this->line("   ✅ Dropped table: {$tableName}");
-            }
-
-            // Re-enable foreign key checks
-            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
             $this->info('   ✅ Database tables removed successfully.');
         } catch (\Exception $e) {
-            $this->error("   ❌ Error removing database tables: " . $e->getMessage());
-            $this->warn('   ⚠️  You may need to manually remove the tables.');
+            $this->error('   ❌ Error removing database tables: ' . $e->getMessage());
+            $this->warn('   ⚠️  You may need to manually drop the tables.');
         }
     }
 
     /**
-     * Remove migration files
+     * Remove the package's migration entries from the migrations table so
+     * that re-installation re-runs them cleanly.
      */
-    private function removeMigrations(): void
-    {
-        // Step 1: Drop database tables directly using SQL (most reliable method)
-        $this->removeDatabaseTables();
-
-        // Step 2: Attempt to rollback migrations (for cleanup/verification)
-        $migrationPath = database_path('migrations');
-        if (!File::isDirectory($migrationPath)) {
-            $this->line("   ℹ️  Migrations directory does not exist");
-            return;
-        }
-
-        $removed = 0;
-        $rolledBack = false;
-
-        foreach (File::files($migrationPath) as $file) {
-            if (str_contains($file->getFilename(), 'atu_shipping_')) {
-                try {
-                    Artisan::call('migrate:rollback', ['--path' => 'database/migrations/' . $file->getFilename(), '--force' => true]);
-                    $this->line('   Rolled back migration: ' . $file->getFilename());
-                    $rolledBack = true;
-                } catch (\Exception $e) {
-                    $this->warn('   Could not rollback migration: ' . $file->getFilename() . ' (' . $e->getMessage() . ')');
-                }
-
-                // Step 3: Delete migration files
-                File::delete($file->getPathname());
-                $removed++;
-            }
-        }
-
-        if ($removed === 0) {
-            $this->line("   ℹ️  No ATU Shipping migrations found to remove");
-            // Still try to clean up migrations table in case files were already deleted
-            $this->removeMigrationTableEntries();
-            return;
-        }
-
-        // Step 4: Remove entries from migrations table
-        $this->removeMigrationTableEntries();
-
-        if (! $rolledBack && $removed > 0) {
-            $this->line('   ℹ️  Note: Some migrations could not be rolled back, but tables were dropped directly.');
-        }
-    }
-
-    /**
-     * Remove migration entries from the migrations table
-     */
-    private function removeMigrationTableEntries(): void
+    private function cleanupMigrationsTable(): void
     {
         try {
             $deleted = DB::table('migrations')
@@ -334,13 +281,9 @@ class ATUShippingUninstallCommand extends Command
             }
         } catch (\Exception $e) {
             $this->warn('   ⚠️  Could not remove migration entries from migrations table: ' . $e->getMessage());
-            $this->line('   ⚠️  You may need to manually remove entries from the migrations table');
         }
     }
 
-    /**
-     * Display completion message
-     */
     private function displayCompletionMessage(bool $envRemoved, bool $migrationsUndone): void
     {
         $this->newLine();
@@ -349,17 +292,21 @@ class ATUShippingUninstallCommand extends Command
 
         $this->comment('📋 What was removed:');
         $this->line('   ✅ All ATU Shipping copied files and stubs');
-        $this->line('   ✅ Shipping routes from routes/api.php');
+        $this->line('   ✅ API routes (routes/api.php) and Admin routes (routes/web.php)');
+        $this->line('   ✅ Sidebar menu entries (when present)');
+
         if ($envRemoved) {
             $this->line('   ✅ ATU Shipping environment variables');
         } else {
             $this->line('   ⏭️  Environment variables preserved (skipped by user choice)');
         }
+
         if ($migrationsUndone) {
-            $this->line('   ✅ ATU Shipping migrations rolled back and migration files deleted');
+            $this->line('   ✅ ATU Shipping database tables dropped and migration entries cleaned');
         } else {
-            $this->line('   ⏭️  Migrations preserved (skipped by user choice)');
+            $this->line('   ⏭️  Database tables preserved (skipped by user choice)');
         }
+
         $this->line('   ✅ Application caches cleared');
         $this->line('   ✅ Final backup created in storage/app/');
         $this->newLine();
@@ -367,21 +314,15 @@ class ATUShippingUninstallCommand extends Command
         $this->comment('📖 Final steps:');
         $this->line('   1. Remove "vormia-folks/atu-shipping" from your composer.json');
         $this->line('   2. Run: composer remove vormia-folks/atu-shipping');
-        if (!$migrationsUndone) {
-            $this->line('   3. Manually remove database tables if needed (migrations were not rolled back)');
-            $this->line('   4. Review your application for any remaining ATU Shipping references');
-        } else {
-            $this->line('   3. Review your application for any remaining ATU Shipping references');
+
+        if (! $migrationsUndone) {
+            $this->line('   3. Manually drop the atu_shipping_* tables if you no longer need the data');
         }
+
         $this->newLine();
 
-        if (!$envRemoved) {
+        if (! $envRemoved) {
             $this->warn('⚠️  Note: Environment variables were preserved. Remove them manually if needed.');
-            $this->newLine();
-        }
-
-        if (!$migrationsUndone) {
-            $this->warn('⚠️  Note: Migration files and database tables remain. Remove them manually if needed.');
             $this->newLine();
         }
 

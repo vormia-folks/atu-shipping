@@ -140,41 +140,48 @@ class ATUShippingHelpCommand extends Command
         }
     }
 
-    /**
-     * Display environment keys
-     */
     private function displayEnvironmentKeys(): void
     {
         $this->info('⚙️  ENVIRONMENT VARIABLES:');
         $this->newLine();
 
-        $this->line('  <fg=white>Currently, ATU Shipping does not require any environment variables.</>');
-        $this->line('  <fg=gray>Future versions may add configuration options here.</>');
+        $envKeys = [
+            ['ATU_SHIPPING_DEFAULT_ORIGIN_COUNTRY', 'ZA', 'Default origin country (ISO 3166-1 alpha-2)'],
+            ['ATU_SHIPPING_BASE_CURRENCY',          'USD', 'Base currency code for shipping calculations'],
+            ['ATU_SHIPPING_ENABLE_LOGGING',         'true', 'Toggle logging of shipping selections'],
+        ];
+
+        foreach ($envKeys as [$key, $default, $description]) {
+            $this->line("  <fg=green>{$key}</>=<fg=yellow>{$default}</>");
+            $this->line("    <fg=gray>{$description}</>");
+        }
+
         $this->newLine();
     }
 
-    /**
-     * Display routes information
-     */
     private function displayRoutes(): void
     {
-        $this->info('🛣️  API ROUTES:');
+        $this->info('🛣️  ROUTES INJECTED ON INSTALL:');
         $this->newLine();
 
-        $this->line('  <fg=white>The following route block is added to routes/api.php (commented out by default):</>');
-        $this->newLine();
-
-        $this->line('  <fg=cyan>// >>> ATU Shipping Routes START</>');
-        $this->line('  <fg=cyan>// Route::prefix(\'atu/shipping\')->group(function () {</>');
-        $this->line('  <fg=cyan>//     Route::post(\'/calculate\', [</>');
-        $this->line('  <fg=cyan>//         \\App\\Http\\Controllers\\ATU\\Shipping\\ShippingController::class,</>');
-        $this->line('  <fg=cyan>//         \'calculate\'</>');
-        $this->line('  <fg=cyan>//     ])->name(\'api.shipping.calculate\');</>');
-        $this->line('  <fg=cyan>// });</>');
-        $this->line('  <fg=cyan>// >>> ATU Shipping Routes END</>');
+        $this->line('  <fg=white>routes/api.php (between START/END markers):</>');
+        $this->line('  <fg=cyan>Route::prefix(\'atu/shipping\')->group(function () {</>');
+        $this->line('  <fg=cyan>    Route::post(\'/calculate\', [\\App\\Http\\Controllers\\Atu\\ShippingController::class, \'calculate\'])->name(\'api.shipping.calculate\');</>');
+        $this->line('  <fg=cyan>    Route::get (\'/options\',   [\\App\\Http\\Controllers\\Atu\\ShippingController::class, \'options\'])  ->name(\'api.shipping.options\');</>');
+        $this->line('  <fg=cyan>    Route::post(\'/select\',    [\\App\\Http\\Controllers\\Atu\\ShippingController::class, \'select\'])   ->name(\'api.shipping.select\');</>');
+        $this->line('  <fg=cyan>});</>');
 
         $this->newLine();
-        $this->line('  <fg=gray>Note: Routes are commented out by default. Uncomment and implement as needed.</>');
+        $this->line('  <fg=white>routes/web.php (inside the auth middleware group):</>');
+        $this->line('  <fg=cyan>Route::prefix(\'admin/atu/shipping\')->name(\'admin.atu.shipping.\')->group(function () {</>');
+        $this->line('  <fg=cyan>    Route::livewire(\'couriers\',        \'admin.atu.shipping.couriers.index\')->name(\'couriers.index\');</>');
+        $this->line('  <fg=cyan>    Route::livewire(\'rules\',           \'admin.atu.shipping.rules.index\')->name(\'rules.index\');</>');
+        $this->line('  <fg=cyan>    Route::livewire(\'logs\',            \'admin.atu.shipping.logs.index\')->name(\'logs.index\');</>');
+        $this->line('  <fg=cyan>    // ... plus create/edit routes for couriers and rules</>');
+        $this->line('  <fg=cyan>});</>');
+
+        $this->newLine();
+        $this->line('  <fg=gray>Note: Admin routes use Route::livewire() from Livewire 4.</>');
         $this->newLine();
     }
 
