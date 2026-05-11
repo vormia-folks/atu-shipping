@@ -94,6 +94,7 @@ new class extends Component {
             'fee_type' => 'required|in:flat,per_kg',
             'flat_fee' => $this->fee_type === 'flat' ? 'required|numeric|min:0' : 'nullable',
             'per_kg_fee' => $this->fee_type === 'per_kg' ? 'required|numeric|min:0' : 'nullable',
+            'currency' => 'nullable|string|max:4',
         ]);
 
         try {
@@ -433,16 +434,15 @@ new class extends Component {
 
 							{{-- Currency --}}
 							<div class="col-span-full sm:col-span-3">
-								<label for="currency" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Currency Code
-									(ISO)</label>
+								<label for="currency" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Currency code</label>
 								<div class="mt-2">
 									<div
 										class="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
-										<input type="text" id="currency" wire:model="currency" maxlength="3" placeholder="e.g., USD"
+										<input type="text" id="currency" wire:model="currency" maxlength="4" placeholder="e.g., USD"
 											class="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none sm:text-sm/6" />
 									</div>
 								</div>
-								<p class="mt-3 text-sm/6 text-gray-600 dark:text-gray-300">Leave empty to use base currency</p>
+								<p class="mt-3 text-sm/6 text-gray-600 dark:text-gray-300">Leave empty to use base currency. Up to 4 characters (ISO 4217 or extended codes).</p>
 							</div>
 						</div>
 					</div>

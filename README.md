@@ -76,6 +76,12 @@ php artisan migrate
 php artisan db:seed --class=ATUShippingSeeder
 ```
 
+### Currency columns (3 to 4 characters)
+
+A later migration, `2026_02_17_100000_alter_atu_shipping_tables_for_4char_currency_codes.php`, widens the `currency` column on `atu_shipping_rules` and `atu_shipping_logs` from 3 to 4 characters so you can store ISO 4217 codes and extended 4-character codes (for example with ATU Multi-Currency). Run `php artisan migrate` after copying updated stubs from the package.
+
+**If production was already altered manually** (columns are already `CHAR(4)` but this migration never ran), add a row to the `migrations` table so Laravel skips it: set `migration` to `2026_02_17_100000_alter_atu_shipping_tables_for_4char_currency_codes` and use a `batch` value consistent with your app. Alternatively, confirm the live column definitions match what that migration would produce, then run `php artisan migrate` if the migration is not yet recorded.
+
 ## Configuration
 
 After installation, you can configure the package in `config/atu-shipping.php`:
