@@ -106,8 +106,8 @@ The configuration file includes settings for:
 
 - Default origin country
 - Base currency for shipping calculations
-- Logging preferences
-- Integration with ATU Multi-Currency (optional)
+- Logging-related key (reserved; see [Logging](#logging))
+- Optional Multi-Currency is a separate Composer package (`suggest`)
 
 ## Environment Variables
 
@@ -122,7 +122,7 @@ ATU_SHIPPING_ENABLE_LOGGING=true
 
 - `ATU_SHIPPING_DEFAULT_ORIGIN_COUNTRY`: Default origin country code (ISO 3166-1 alpha-2) if not specified when calculating shipping
 - `ATU_SHIPPING_BASE_CURRENCY`: Base currency code for shipping calculations. Falls back to A2 Commerce currency if not set
-- `ATU_SHIPPING_ENABLE_LOGGING`: Whether to log shipping selections (default: `true`). Logging happens at checkout or when manually triggered
+- `ATU_SHIPPING_ENABLE_LOGGING`: Reserved for future use (default: `true`). Selection rows are written when `select()` runs; the flag does not disable logging in the current release
 
 ## Usage
 
@@ -179,13 +179,19 @@ The package uses a rule-based system where:
 
 ### Supported Rule Constraints
 
-- From country
-- To country
+**Evaluated at runtime** (see `RuleEvaluator`):
+
+- From country / to country (nullable = wildcard)
 - Min/max cart subtotal
 - Min/max total weight
-- Min/max distance (if provided)
-- Carrier type (bike, van, pickup)
-- Per-item or cart-level application
+- Per-item vs cart-level weight for **per-kg** fees (`applies_per_item` on the rule)
+
+**Stored on the rule** but **not** used by the current evaluator (reserved for future logic or custom extensions):
+
+- Min/max distance
+- Carrier type (e.g. bike, van, pickup)
+
+Details: [docs/atu-shipping.md](docs/atu-shipping.md).
 
 ## Database Structure
 
@@ -543,11 +549,12 @@ Your cart and order models should implement these interfaces to work with ATU Sh
 
 ## Logging
 
-Shipping selections are logged automatically when:
+When you call `select()` on the shipping service, a row is written to `atu_shipping_logs` on success (failures are caught and reported to Laravel’s log). Typical call sites:
 
-- A courier is selected at checkout
-- Manual admin recalculation occurs
-- Reporting is generated
+- Checkout after the customer chooses a courier
+- Any custom flow that finalizes shipping via `select()`
+
+The `enable_logging` entry in `config/atu-shipping.php` is kept for forward compatibility; **today’s package does not skip logging based on that flag**. If you need toggled logging, wrap `select()` in your application or extend `ShippingService`.
 
 Logs are stored in the `atu_shipping_logs` table and include:
 
@@ -558,7 +565,7 @@ Logs are stored in the `atu_shipping_logs` table and include:
 
 ## Integration with ATU Multi-Currency
 
-If ATU Multi-Currency is installed and configured, the package will automatically use it for currency conversion. Otherwise, it falls back to the base currency.
+Optional package `vormia-folks/atu-multi-currency` is listed under Composer `suggest`. The shipping fee calculator includes a **conversion hook** (`FeeCalculator::convertCurrency()`) that detects Multi-Currency classes but does **not** yet apply live conversion in core flows—amounts stay in the rule’s currency (or A2 Commerce default). Implement conversion in your app or extend the calculator if you need cross-currency totals. See [docs/atu-shipping.md](docs/atu-shipping.md#currency).
 
 ## Non-Goals
 
@@ -603,9 +610,9 @@ MIT
 
 For detailed implementation guides and architecture documentation, see:
 
-- **Build Guide**: `docs/atu-shipping.md` - Authoritative implementation guide and technical documentation
-- **Package Creation Guide**: `docs/package-creation-guide.md` - Guide for creating similar packages
-- **A2Commerce Documentation**: See [A2Commerce GitHub repository](https://github.com/a2-atu/a2commerce) for base functionality
+- **[Implementation guide](docs/atu-shipping.md)** — runtime flow, contracts, rule evaluation, currency columns, installer markers, and known limitations
+- **[Package creation guide](docs/package-creation-guide.md)** — how this repository is structured for other ATU-style Laravel packages
+- **[A2Commerce](https://github.com/a2-atu/a2commerce)** — base commerce functionality and installation
 
 ## Troubleshooting
 
@@ -643,13 +650,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 For issues, questions, or contributions:
 
-- Check the documentation in `docs/atu-shipping.md`
-- Review [A2Commerce documentation](https://github.com/a2-atu/a2commerce) for base functionality
+- Read [docs/atu-shipping.md](docs/atu-shipping.md) for behaviour and extension points
+- Review [A2Commerce](https://github.com/a2-atu/a2commerce) for base functionality
 - Open an issue on the package repository
 
 ## Version
 
-Current version: **1.0.0**
+Package constant `Vormia\ATUShipping\ATUShipping::VERSION` tracks the in-code release label (use Git tags as the source of truth for Composer installs; this repository does not duplicate a `version` field in `composer.json`).
 
 ---
 
