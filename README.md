@@ -43,7 +43,7 @@ This will automatically install ATU Shipping with all files and configurations:
 
 **Automatically Installed:**
 
-- ✅ Migrations are auto-loaded from the package (via `loadMigrationsFrom()` — no copy)
+- ✅ Migrations are auto-loaded from the package’s `database/migrations` directory (via `loadMigrationsFrom()` — nothing copied into your app’s `database/migrations`)
 - ✅ Seeder file copied to `database/seeders/ATUShippingSeeder.php`
 - ✅ Configuration file copied to `config/atu-shipping.php`
 - ✅ Reference `ShippingController` copied to `app/Http/Controllers/Atu/ShippingController.php`
@@ -81,6 +81,8 @@ php artisan migrate
 # Run seeders to create default couriers
 php artisan db:seed --class=ATUShippingSeeder
 ```
+
+**Upgrading from older releases:** If an earlier version of this package copied migration files into your app’s `database/migrations/` directory, remove those duplicate `*atu_shipping*` PHP files after you upgrade. Laravel registers migrations by basename; keeping both the app copies and the package’s `loadMigrationsFrom` path can cause duplicate-name conflicts.
 
 ### Currency columns (3 to 4 characters)
 
@@ -211,7 +213,7 @@ php artisan atushipping:install
 
 **Automatically Installed:**
 
-- ✅ Migrations auto-loaded from the package (no copy)
+- ✅ Migrations auto-loaded from the package’s `database/migrations` (nothing copied into your app’s `database/migrations`)
 - ✅ Seeder file copied to `database/seeders/ATUShippingSeeder.php`
 - ✅ Configuration file copied to `config/atu-shipping.php`
 - ✅ Reference `ShippingController` copied to `app/Http/Controllers/Atu/ShippingController.php`
@@ -289,7 +291,8 @@ php artisan atushipping:uninstall --keep-env
 **Note:** The uninstall command will:
 
 - Remove all copied files and stubs
-- Remove routes from `routes/api.php`
+- Remove marked blocks from `routes/api.php`, `routes/web.php`, and the Flux sidebar (when present)
+- Optionally drop `atu_shipping_*` tables and prune this package’s rows from the `migrations` table (migration PHP stays in `vendor/` until you run `composer remove`)
 - Optionally remove environment variables
 - Create a backup before removal
 - Clear application caches
@@ -581,8 +584,8 @@ composer remove vormia-folks/atu-shipping
 **Note:** The uninstall command will:
 
 - Remove all copied files and stubs
-- Remove routes from `routes/api.php`
-- Optionally drop database tables (with confirmation)
+- Remove marked blocks from `routes/api.php`, `routes/web.php`, and the Flux sidebar (when present)
+- Optionally drop `atu_shipping_*` tables and prune this package’s migration rows (files under `vendor/` remain until `composer remove`)
 - Optionally remove environment variables
 - Create a backup before removal
 

@@ -15,4 +15,12 @@ class ATUShipping
 
         return $suffix ? $base . '/' . ltrim($suffix, '/') : $base;
     }
+
+    /**
+     * Absolute path to package database migrations (loaded via loadMigrationsFrom).
+     */
+    public static function migrationsPath(): string
+    {
+        return dirname(__DIR__) . '/database/migrations';
+    }
 }

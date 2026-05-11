@@ -3,6 +3,7 @@
 namespace Vormia\ATUShipping\Console\Commands;
 
 use Vormia\ATUShipping\ATUShipping;
+use Vormia\ATUShipping\Support\AtuShippingPackageMigrationNames;
 use Vormia\ATUShipping\Support\Installer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
@@ -41,6 +42,7 @@ class ATUShippingUninstallCommand extends Command
         $this->warn('   • Remove Admin routes from routes/web.php');
         $this->warn('   • Remove Flux sidebar menu entries (if injected)');
         $this->warn('   • Note: Composer packages are NOT uninstalled');
+        $this->warn('   • Migrations live in vendor; use composer remove when you drop the dependency');
         $this->newLine();
 
         if (! $force && ! $this->confirm('Are you absolutely sure you want to uninstall ATU Shipping?', false)) {
@@ -270,17 +272,28 @@ class ATUShippingUninstallCommand extends Command
     private function cleanupMigrationsTable(): void
     {
         try {
-            $deleted = DB::table('migrations')
-                ->where('migration', 'like', '%atu_shipping_%')
-                ->delete();
+            if (! Schema::hasTable('migrations')) {
+                $this->line('   ℹ️  No migrations table; skipping row prune.');
+
+                return;
+            }
+
+            $names = AtuShippingPackageMigrationNames::basenames();
+            if ($names === []) {
+                $this->line('   ℹ️  No package migration names resolved; skipping row prune.');
+
+                return;
+            }
+
+            $deleted = DB::table('migrations')->whereIn('migration', $names)->delete();
 
             if ($deleted > 0) {
-                $this->info("   ✅ Removed {$deleted} migration entry/entries from migrations table");
+                $this->info("   ✅ Removed {$deleted} row(s) for ATU Shipping package migrations from the migrations table.");
             } else {
-                $this->line('   ℹ️  No migration entries found in migrations table to remove');
+                $this->line('   ℹ️  No matching ATU Shipping migration rows in the migrations table.');
             }
         } catch (\Exception $e) {
-            $this->warn('   ⚠️  Could not remove migration entries from migrations table: ' . $e->getMessage());
+            $this->warn('   ⚠️  Could not prune migrations table: ' . $e->getMessage());
         }
     }
 
@@ -314,6 +327,7 @@ class ATUShippingUninstallCommand extends Command
         $this->comment('📖 Final steps:');
         $this->line('   1. Remove "vormia-folks/atu-shipping" from your composer.json');
         $this->line('   2. Run: composer remove vormia-folks/atu-shipping');
+        $this->line('   (Migration PHP files remain in vendor until composer remove.)');
 
         if (! $migrationsUndone) {
             $this->line('   3. Manually drop the atu_shipping_* tables if you no longer need the data');

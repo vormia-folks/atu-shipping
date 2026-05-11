@@ -49,9 +49,7 @@ class ATUShippingServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Load migrations from the package itself; no need to copy them into
-        // the host app's database/migrations folder.
-        $this->loadMigrationsFrom(ATUShipping::stubsPath('migrations'));
+        $this->loadMigrationsFrom(ATUShipping::migrationsPath());
 
         if ($this->app->runningInConsole()) {
             $this->commands([
