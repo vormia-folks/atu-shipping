@@ -1,11 +1,10 @@
 <?php
 
-use Livewire\Attributes\On;
 use Livewire\WithPagination;
-use Livewire\Volt\Component;
+use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\DB;
-use App\Traits\Vrm\Livewire\WithNotifications;
+use Vormia\Vormia\Traits\Livewire\WithNotifications;
 
 new class extends Component {
     //

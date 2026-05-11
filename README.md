@@ -15,9 +15,13 @@ A Laravel package for rule-based shipping fee and shipping tax calculation engin
 ## Requirements
 
 - PHP ^8.2
-- Laravel ^12.0
-- vormiaphp/vormia ^4.4
-- a2-atu/a2commerce ^0.1.6
+- Laravel ^12.0 or ^13.0
+- vormiaphp/vormia ^5.4
+- a2-atu/a2commerce ^0.2.0
+
+**Admin Livewire UI:** This package does not declare `livewire/livewire` in Composer. The copied admin views are **Livewire 4** single-file components. Install **Livewire 4** in your app—typically it is already required by **A2Commerce**, or you can add `livewire/livewire` yourself. See the [Livewire 4 documentation](https://livewire.laravel.com/docs/4.x/components).
+
+**Optional:** For currency conversion helpers, install `vormia-folks/atu-multi-currency` (^2.0); see Composer `suggest`.
 
 ## Installation
 
@@ -316,22 +320,22 @@ Add the following routes to your admin routes file (e.g., `routes/admin.php` or 
 
 ```php
 Route::prefix('admin/atu/shipping')->name('admin.atu.shipping.')->group(function () {
-    // Couriers
-    Volt::route('couriers', 'admin.atu.shipping.couriers.index')->name('couriers.index');
-    Volt::route('couriers/create', 'admin.atu.shipping.couriers.create')->name('couriers.create');
-    Volt::route('couriers/{id}/edit', 'admin.atu.shipping.couriers.edit')->name('couriers.edit');
+    // Couriers — second argument is the Livewire view name (see resources/views/livewire/...)
+    Route::livewire('couriers', 'admin.atu.shipping.couriers.index')->name('couriers.index');
+    Route::livewire('couriers/create', 'admin.atu.shipping.couriers.create')->name('couriers.create');
+    Route::livewire('couriers/{id}/edit', 'admin.atu.shipping.couriers.edit')->name('couriers.edit');
 
     // Rules
-    Volt::route('rules', 'admin.atu.shipping.rules.index')->name('rules.index');
-    Volt::route('rules/create', 'admin.atu.shipping.rules.create')->name('rules.create');
-    Volt::route('rules/{id}/edit', 'admin.atu.shipping.rules.edit')->name('rules.edit');
+    Route::livewire('rules', 'admin.atu.shipping.rules.index')->name('rules.index');
+    Route::livewire('rules/create', 'admin.atu.shipping.rules.create')->name('rules.create');
+    Route::livewire('rules/{id}/edit', 'admin.atu.shipping.rules.edit')->name('rules.edit');
 
     // Logs
-    Volt::route('logs', 'admin.atu.shipping.logs.index')->name('logs.index');
+    Route::livewire('logs', 'admin.atu.shipping.logs.index')->name('logs.index');
 });
 ```
 
-**Note:** If you have configured your own starterkit, make sure to add `use Livewire\Volt\Volt;` at the top of your routes file.
+**Note:** `Route::livewire()` is provided by Livewire 4. See [Livewire routing](https://livewire.laravel.com/docs/4.x/navigate) and [components](https://livewire.laravel.com/docs/4.x/components).
 
 ### Manual API Routes Setup (Optional)
 

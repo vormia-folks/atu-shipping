@@ -1,16 +1,12 @@
-{{-- ATU Shipping Sidebar Menu Reference --}}
-{{-- Add this to your admin sidebar menu --}}
+{{-- ATU Shipping — inject inside your Flux admin sidebar (e.g. within flux:sidebar.group), before </flux:sidebar.group> --}}
+{{-- Requires livewire/flux in the host app (e.g. vormiaphp/ui-livewireflux-admin). --}}
 
-{{-- >>> ATU Shipping Menu START --}}
-{{-- <li class="nav-item">
-    <a href="#" class="nav-link has-dropdown">
-        <i class="fas fa-shipping-fast"></i>
-        <span>Shipping</span>
-    </a>
-    <ul class="dropdown-menu">
-        <li><a href="{{ route('admin.atu.shipping.couriers.index') }}" class="nav-link">Couriers</a></li>
-        <li><a href="{{ route('admin.atu.shipping.rules.index') }}" class="nav-link">Rules</a></li>
-        <li><a href="{{ route('admin.atu.shipping.logs.index') }}" class="nav-link">Logs</a></li>
-    </ul>
-</li> --}}
-{{-- >>> ATU Shipping Menu END --}}
+<flux:sidebar.item icon="truck" :href="route('admin.atu.shipping.couriers.index')" wire:navigate>
+    {{ __('Shipping couriers') }}
+</flux:sidebar.item>
+<flux:sidebar.item icon="rectangle-stack" :href="route('admin.atu.shipping.rules.index')" wire:navigate>
+    {{ __('Shipping rules') }}
+</flux:sidebar.item>
+<flux:sidebar.item icon="clipboard-document-list" :href="route('admin.atu.shipping.logs.index')" wire:navigate>
+    {{ __('Shipping logs') }}
+</flux:sidebar.item>

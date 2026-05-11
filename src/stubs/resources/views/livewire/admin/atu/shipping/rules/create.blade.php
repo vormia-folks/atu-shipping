@@ -1,10 +1,10 @@
 <?php
 
-use Livewire\Volt\Component;
+use Livewire\Component;
 use Livewire\Attributes\Validate;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\DB;
-use App\Traits\Vrm\Livewire\WithNotifications;
+use Vormia\Vormia\Traits\Livewire\WithNotifications;
 
 new class extends Component {
     use WithNotifications;
